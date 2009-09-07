@@ -7,4 +7,4 @@ Current issues.
 
 - The data routing is very crude with no way to specify where a piece of data is expected to be sent.
 - Some of the bugs are rather insidious due to the crude code in the Arduino.
-- The firmware in the Arduino needs to be reworked to be more rebust.
+- The firmware in the Arduino needs to be reworked to be more robust.
