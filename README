@@ -1,0 +1,10 @@
+FlightGear-Console is a private repository of test code and works-in-progress. 
+
+While we are ensuring that the code works, at this stage it is not possible to check the quality of the code.
+Feel Free to make suggestion on the code and we will add them at the right time.
+
+Current issues.
+
+- The data routing is very crude with no way to specify where a piece of data is expected to be sent.
+- Some of the bugs are rather insidious due to the crude code in the Arduino.
+- The firmware in the Arduino needs to be reworked to be more rebust.
