@@ -1,24 +1,36 @@
 #!/usr/bin/env python
+# Copyright (c) 2009 George Patterson
+
 """Transfer data between a serial port and one (or more) TCP
 connections.
     options:
     -h, --help:        this help
     -p, --port=PORT: port, a number, default = /dev/arduino or can use
-                        anumeric value or a device name
+                        a numeric value or a device name such as /dev/ttyUSB0
     -b, --baud=BAUD: baudrate, default 38400
     -t, --tcp=PORT: TCP port number, (admin) default 1234
     -l, --log: log data streams to 'snifter-0', 'snifter-1'
     -L, --log_name=NAME: log data streams to '<NAME>-0', '<NAME>-1'
 """
+# Operating Parameters:
+#   - Entire server needs to be shutdown when changing planes in Flightgear.
+#       This is because it's necessary to create flightgear as a server
+#       as well as a client. Might be other ways to write this stuff.
+#   - Currently there is no authentication nor classes for the admin
+#       protocol. This will need to be changed before offical release.
 
-import sys
-import getopt
 from twisted.internet import reactor, protocol
 from twisted.internet.serialport import SerialPort
 #from zope.interface import implements
 from twisted.internet import protocol, interfaces
+from twisted.protocols.basic import LineReceiver
+from twisted.internet.protocol import ClientFactory
+
 #import serial #get the serial constants
 import gc
+import sys
+import getopt
+
 
 # FIXME set serial buffer size? SEND_LIMIT
 
