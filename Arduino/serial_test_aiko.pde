@@ -1,43 +1,46 @@
 #include <AikoEvents.h> 
 using namespace Aiko;
 
-#define ver     "0.3.01-20090929" 
-byte ledPin =13;
-byte Pin1=2;
-byte Pin2=3;
+#define ver  "0.4.01-20090927" 
+
+#define Pin1 2
+#define Pin2 3
+
+#define Adc1 0 
+#define Adc2 1
+
+#define ledPin 13
+#define arduinoId "A6006AHI"
 
 int incomingByte=0;
 char cmd[20];
 //char buf[20];
 
-
-
-void blinkLed() 
+void init_ard()
 {
-  //Serial.println("TEST");
-  static int ledstate=HIGH;
-  digitalWrite(ledPin, ledstate);
-  ledstate= !ledstate;
-}
-
-void setup()
-{
-  Serial.begin(38400);
   pinMode(ledPin, OUTPUT);
 
   digitalWrite(ledPin,HIGH);
 
-
   delay(500);
-  digitalWrite(ledPin,LOW);
+  digitalWrite(ledPin, LOW);
+  Serial.println("(init)");
+}
+
+void setup()
+{
+  init_ard();
+  Serial.begin(38400);
+
   //Serial.println("(ready)");
   //Events.addHandler(blinkLed,      200);
   Events.addHandler(serialHandler,   20);
-  Events.addHandler(switch2Handler,  100);
+  Events.addHandler(switchHandler,  25);
+  Events.addHandler(potHandler,  30);
 }
 
 /*
-* Arduino serial buffer is 128 characters.
+ * Arduino serial buffer is 128 characters.
  * At 115,200 baud (11,520 cps) the buffer is filled 90 times per second.
  * Need to run this handler every 10 milliseconds.
  */
@@ -90,39 +93,108 @@ void serialHandler() {
   }
 }
 
+void potHandler() {
+  static int old_Adc1_val=1023; 
+  static int old_Adc2_val=1023;
+  static byte jitter_offset=2;
+  //define jitter_offset 2
+
+    int new_Adc1_val;
+  int new_Adc2_val;
+  byte started_str;
+
+  new_Adc1_val=analogRead(Adc1);
+  new_Adc2_val=analogRead(Adc2);
+  //Serial.println(new_Adc1_val);
+
+  started_str=0;
+  if (new_Adc1_val < (old_Adc1_val-jitter_offset)  ||  new_Adc1_val > (old_Adc1_val+jitter_offset) ) {
+    started_str=1;
+    old_Adc1_val=new_Adc1_val;
+
+    Serial.print("(");
+    Serial.print(arduinoId);
+    Serial.print(" ");
+    Serial.print("(adc1 ");
+    Serial.print(new_Adc1_val);
+    Serial.print(")");
+    //delay(500);
+  }
+
+  // Debug the first one...
+  //if (old_Adc2_val!= new_Adc2_val) {
+  if (new_Adc2_val < (old_Adc2_val-jitter_offset)  ||  new_Adc2_val > (old_Adc2_val+jitter_offset) ) {
+    old_Adc2_val=new_Adc2_val;
+    if (started_str==0)
+    {
+      Serial.print("(");
+      Serial.print(arduinoId);
+      Serial.print(" ");
+    } 
+    started_str=1;
+    Serial.print("(adc2 ");
+    Serial.print(new_Adc2_val);
+    Serial.print(")");
+  }
+
+  if (started_str==1) {
+    Serial.println(");");
+  }
+
+
+}
 
 void switchHandler() {
   static int old_Pin1_val;
   static int old_Pin2_val;
   int new_Pin1_val;
   int new_Pin2_val;
-
+  byte started_str;
 
   new_Pin1_val=digitalRead(Pin1);
   new_Pin2_val=digitalRead(Pin2);
 
+  started_str=0;
   if (old_Pin1_val!= new_Pin1_val) {
     old_Pin1_val=new_Pin1_val;
-
-    Serial.print("(pin1=");
+    started_str=1;
+    Serial.print("(");
+    Serial.print(arduinoId);
+    Serial.print(" ");
+    Serial.print("(pin1 ");
     Serial.print(old_Pin1_val);
-    Serial.println(")");
+    Serial.print(")");
   }
 
   if (old_Pin2_val!= new_Pin2_val) {  
     old_Pin2_val=new_Pin2_val;
-    Serial.print("(pin2=");
+    if (started_str == 0) {
+      Serial.print("(");
+      Serial.print(arduinoId);
+      Serial.print(" ");
+    
+      started_str=1;
+    }
+    Serial.print("(pin2 ");
     Serial.print(old_Pin2_val);
-
-    Serial.println(")");    
+    Serial.print(")");    
   }
+  if (started_str==1) {
+    Serial.println(");");
+  }
+  //Serial.print(")");
 }
 
 void processCommand(char *buf) {
-  Serial.println(buf);
-  if (strcmp(buf, "(ver)") == 0 )
+  //Serial.println(buf);
+
+  if (strcmp(buf, "(init)") == 0 )
   {
-    Serial.print("(ver=");
+    init_ard();
+  } 
+  else if (strcmp(buf, "(ver)") == 0 )
+  {
+    Serial.print("(ver ");
     Serial.print(ver);
     Serial.println(")");
   } 
@@ -142,5 +214,8 @@ void processCommand(char *buf) {
 void loop() {
   Events.loop();
 }
+
+
+
 
 
