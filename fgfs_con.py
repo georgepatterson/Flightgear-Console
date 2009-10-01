@@ -41,8 +41,12 @@ class Serialport(protocol.Protocol):
     
     def __init__(self, port, reactor, baudrate, log_name=None):
         self.admintcp_ports = []
+        from FlightGear import FlightGear
+        from readlisp import *
+
+        # self.fg = FlightGear(hostname, 5500)
         self.fgfstcp_ports = []
-        #OLD self.serial = serialport.SerialPort(self, reactor, port, baudrate, rtscts=0)
+        
         self.serial = SerialPort(self, reactor, port, baudrate)
         self.serial.registerProducer(self, True)
         self.paused = False
