@@ -30,7 +30,8 @@ from twisted.internet.protocol import ClientFactory
 import gc
 import sys
 import getopt
-
+from FlightGear import FlightGear
+from readlisp import *
 hostname="192.168.1.104"
 
 # FIXME set serial buffer size? SEND_LIMIT
@@ -41,14 +42,15 @@ class Serialport(protocol.Protocol):
     
     def __init__(self, port, reactor, baudrate, log_name=None):
         self.admintcp_ports = []
-        from FlightGear import FlightGear
-        from readlisp import *
+        #from FlightGear import FlightGear
+        #from readlisp import *
 
         # self.fg = FlightGear(hostname, 5500)
         self.fgfstcp_ports = []
         
         self.serial = SerialPort(self, reactor, port, baudrate)
         self.serial.registerProducer(self, True)
+        self.serial_buffer=""
         self.paused = False
         self.log = None
         if log_name is not None:
@@ -113,7 +115,35 @@ class Serialport(protocol.Protocol):
         """Pass any received data to the list of AdminPorts."""
         len_data=len(data)
         print "SDR: write data: %s:%d" % (data.strip(), len_data)
-        
+
+        self.serial_buffer+=data.strip()
+        print "SDR: buffer: %s" % (self.serial_buffer.strip())
+
+        semi_pos=self.serial_buffer.find(";")
+        if semi_pos > -1:
+            data_chunks=self.serial_buffer.split(";")
+            s_string=data_chunks[0]
+            print "DEBUG: data chunks: ", data_chunks
+            self.serial_buffer=self.serial_buffer[semi_pos+1:]
+
+            
+            lisp_arr= readlisp(s_string)
+
+            if len(lisp_arr)>1:
+                for i in range(1, len(lisp_arr)):
+                    if (len(lisp_arr[i]))==1:
+                        param=lisp_arr[i][0]
+                        print "PARAM: ", param
+                        if str(param)[0:3]=="pin":
+                            print "ERROR: invalid pin value-refetch"
+                        elif param[:3]=="adc":
+                            print "ERROR: invalid adc value-refetch"
+                    elif len(lisp_arr[i])==2:
+                        param=lisp_arr[i][0]
+                        val=lisp_arr[i][1]
+                        print "DEBUG: Param: %s Val: %s" % (param, str(val))
+                    
+            
         for tcp_port in self.admintcp_ports:
             tcp_port.write(data)
         for tcp_port in self.fgfstcp_ports:
@@ -171,21 +201,21 @@ class AdminPortFactory(protocol.ServerFactory):
         p.factory = self
         return p
 
-class TelnetFactory(protocol.clientFactory):
-    """Factory to create Telnet interface to Flightgear protocol instances, an instanced
-    SerialPort must be passed in."""
-    protocol = EchoClient
-    
-    def clientConnectionFailed(self, connector, reason):
-        print "Connection failed - goodbye!"
-        reactor.stop()
-    
-    def clientConnectionLost(self, connector, reason):
-        print "Connection lost - goodbye!"
-        reactor.stop()
-
-    def __init__(self, serial):
-        self.serial = serial
+#~ class TelnetFactory(protocol.clientFactory):
+    #~ """Factory to create Telnet interface to Flightgear protocol instances, an instanced
+    #~ SerialPort must be passed in."""
+    #~ protocol = EchoClient
+    #~ 
+    #~ def clientConnectionFailed(self, connector, reason):
+        #~ print "Connection failed - goodbye!"
+        #~ reactor.stop()
+    #~ 
+    #~ def clientConnectionLost(self, connector, reason):
+        #~ print "Connection lost - goodbye!"
+        #~ reactor.stop()
+#~ 
+    #~ def __init__(self, serial):
+        #~ self.serial = serial
 
 class FGFSPort(protocol.Protocol):
     """Create a TCP server connection and pass data from it to the
@@ -325,10 +355,10 @@ def main():
     admin_port_factory = AdminPortFactory(serial_port, log_name)
     #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
 
-    telnet_factory=TelnetFactory(serial_port)
+    #telnet_factory=TelnetFactory(serial_port)
 
-    reactor.connectTCP("localhost", 5500, telnet_factory)
-    reactor.listenTCP(tcp_port, admin_port_factory)
+    #reactor.connectTCP("localhost", 5500, telnet_factory)
+    #reactor.listenTCP(tcp_port, admin_port_factory)
     #reactor.listenTCP(5555, fgfs_port_factory)
     
     print "Listening to admin port on %d and 5555" % ( tcp_port )
