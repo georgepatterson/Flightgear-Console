@@ -1,10 +1,27 @@
 FlightGear-Console is a private repository of test code and works-in-progress. 
 
-While we are ensuring that the code works, at this stage it is not possible to check the quality of the code.
-Feel Free to make suggestion on the code and we will add them at the right time.
+While we are ensuring that the code works, at this stage it is not
+possible to check the quality of the code. Feel Free to make suggestions
+about the code and we will add them at the right time.
 
 Current issues.
 
-- The data routing is very crude with no way to specify where a piece of data is expected to be sent.
+- The data routing is very crude with no way to specify where a piece of
+     data is expected to be sent.
 - Some of the bugs are rather insidious due to the crude code in the Arduino.
 - The firmware in the Arduino needs to be reworked to be more robust.
+
+Requirements
+
+- Python 2.4/2.5 or later
+- Pyserial
+
+You also need to grab Flightgear.py from the flightgear cvs repository.
+    URL: http://cvs.flightgear.org/viewvc/source/scripts/python/
+
+While this file may be incomplete, this code is in a state of flux and
+subject to change. Please drop a line if this is not clear as it's
+possible that an improved version is in the pipeline.
+
+Still needed to document the protocol though the S-Expressions are
+fairly straight forward.
