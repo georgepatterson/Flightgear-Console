@@ -31,6 +31,7 @@ import gc
 import sys
 import getopt
 
+hostname="192.168.1.104"
 
 # FIXME set serial buffer size? SEND_LIMIT
 
@@ -166,6 +167,22 @@ class AdminPortFactory(protocol.ServerFactory):
         p.factory = self
         return p
 
+class TelnetFactory(protocol.clientFactory):
+    """Factory to create Telnet interface to Flightgear protocol instances, an instanced
+    SerialPort must be passed in."""
+    protocol = EchoClient
+    
+    def clientConnectionFailed(self, connector, reason):
+        print "Connection failed - goodbye!"
+        reactor.stop()
+    
+    def clientConnectionLost(self, connector, reason):
+        print "Connection lost - goodbye!"
+        reactor.stop()
+
+    def __init__(self, serial):
+        self.serial = serial
+
 class FGFSPort(protocol.Protocol):
     """Create a TCP server connection and pass data from it to the
     serial port."""
@@ -264,7 +281,7 @@ def main():
     """Parse the command line and run the UI"""
     try:
         opts, args = getopt.getopt(sys.argv[1:], "hp:b:t:lL:",
-	        ["help", "port=", "baud=", "tcp=", "log", "log_name="])
+            ["help", "port=", "baud=", "tcp=", "log", "log_name="])
     except getopt.GetoptError, e:
         usage(e)
         sys.exit(2)
@@ -302,11 +319,14 @@ def main():
     serial_port = Serialport(reactor, tty_port, baudrate, log_name)
 
     admin_port_factory = AdminPortFactory(serial_port, log_name)
-    fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
+    #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
 
+    telnet_factory=TelnetFactory(serial_port)
+
+    reactor.connectTCP("localhost", 5500, telnet_factory)
     reactor.listenTCP(tcp_port, admin_port_factory)
-    reactor.listenTCP(5555, fgfs_port_factory)
-
+    #reactor.listenTCP(5555, fgfs_port_factory)
+    
     print "Listening to admin port on %d and 5555" % ( tcp_port )
 
     reactor.run()
