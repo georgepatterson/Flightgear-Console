@@ -56,6 +56,11 @@ class Serialport(protocol.Protocol):
         if log_name is not None:
             self.log = file('%s-0' % log_name, 'w')
 
+
+        self.serial.write("(pin1);");
+
+        #self.serial.write("(A6006AOK (pin1 1));");
+
     def add_admintcp(self, tcp_port):
         """Add a AdminPort to those receiving serial data."""
         if self.paused:
@@ -115,8 +120,15 @@ class Serialport(protocol.Protocol):
         """Pass any received data to the list of AdminPorts."""
         len_data=len(data)
         print "SDR: write data: %s:%d" % (data.strip(), len_data)
-
+        
         self.serial_buffer+=data.strip()
+        
+        self.serial_buffer=self.serial_buffer.replace("(read jackpot)","")
+        self.serial_buffer=self.serial_buffer.replace("(error overflow)","")
+        self.serial_buffer=self.serial_buffer.replace("(unknown command)","")
+        self.serial_buffer=self.serial_buffer.replace("\n","")
+        self.serial_buffer=self.serial_buffer.replace("\r","")
+
         print "SDR: buffer: %s" % (self.serial_buffer.strip())
 
         semi_pos=self.serial_buffer.find(";")
@@ -127,22 +139,34 @@ class Serialport(protocol.Protocol):
             self.serial_buffer=self.serial_buffer[semi_pos+1:]
 
             
-            lisp_arr= readlisp(s_string)
-
-            if len(lisp_arr)>1:
-                for i in range(1, len(lisp_arr)):
-                    if (len(lisp_arr[i]))==1:
-                        param=lisp_arr[i][0]
+            lisp_result= readlisp(s_string)
+            print "DEBUG: Lisp Result:", lisp_result
+            print "DEBUG: Lisp length:", len(lisp_result);
+            print "DEBUG TYPE:", type(lisp_result[1])
+            if type(lisp_result)=="str": #Simple S-expression
+                print "Error: We have a simple string here"
+            if type(lisp_result[1]) =="int" or type(lisp_result[1])=="str": # and len(lisp_result)==2:
+                print "We have a unprocessed S-expression here"
+                param=lisp_result[0]
+                val=lisp_result[1]
+                print "DEBUG: Param: %s Val: %s" % (param, str(val))
+            elif len(lisp_result)>1:
+                for i in range(1, len(lisp_result)):
+                    if (len(lisp_result[i]))==1:
+                        param=lisp_result[i][0]
                         print "PARAM: ", param
+                        param_label=str(param)[0:4]
                         if str(param)[0:3]=="pin":
                             print "ERROR: invalid pin value-refetch"
+                            
+                            self.serial.write("(%s);" % param_label)
                         elif param[:3]=="adc":
                             print "ERROR: invalid adc value-refetch"
-                    elif len(lisp_arr[i])==2:
-                        param=lisp_arr[i][0]
-                        val=lisp_arr[i][1]
+                    elif len(lisp_result[i])==2:
+                        param=lisp_result[i][0]
+                        val=lisp_result[i][1]
                         print "DEBUG: Param: %s Val: %s" % (param, str(val))
-                    
+                        
             
         for tcp_port in self.admintcp_ports:
             tcp_port.write(data)
