@@ -1,7 +1,7 @@
 #include <AikoEvents.h> 
 using namespace Aiko;
 
-#define ver  "0.4.01-20090927" 
+#define ver  "0.5.01-20091002" 
 
 #define Pin1 2
 #define Pin2 3
@@ -34,9 +34,9 @@ void setup()
 
   //Serial.println("(ready)");
   //Events.addHandler(blinkLed,      200);
-  Events.addHandler(serialHandler,   20);
-  Events.addHandler(switchHandler,  25);
-  Events.addHandler(potHandler,  30);
+  Events.addHandler(serialHandler, 20);
+  Events.addHandler(switchHandler, 25);
+  Events.addHandler(potHandler,    30);
 }
 
 /*
@@ -172,7 +172,7 @@ void switchHandler() {
       Serial.print("(");
       Serial.print(arduinoId);
       Serial.print(" ");
-    
+
       started_str=1;
     }
     Serial.print("(pin2 ");
@@ -194,9 +194,9 @@ void processCommand(char *buf) {
   } 
   else if (strcmp(buf, "(ver)") == 0 )
   {
-    Serial.print("(ver ");
+    Serial.print("(ver \"");
     Serial.print(ver);
-    Serial.println(")");
+    Serial.println("\");");
   } 
   else if (strcmp(buf, "(gear 1)") == 0 )
   {
@@ -205,6 +205,15 @@ void processCommand(char *buf) {
   else if (strcmp(buf, "(gear 0)") == 0 )
   {
     digitalWrite(ledPin,0);
+  }
+  else if (strcmp(buf, "(pin1)") == 0 )
+  {
+    Serial.print("(");
+    Serial.print(arduinoId);
+    Serial.print(" ");
+    Serial.print("(pin1 ");
+    Serial.print( digitalRead(Pin1) );
+    Serial.println("));");
   } 
   else {
     Serial.println("(unknown command)");
@@ -214,6 +223,7 @@ void processCommand(char *buf) {
 void loop() {
   Events.loop();
 }
+
 
 
 
