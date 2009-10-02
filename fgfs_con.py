@@ -162,11 +162,12 @@ class Serialport(protocol.Protocol):
     
     def process_params(self, params):
         print "DEBUG SPP: params:", params
+
         for i in range(1, len(params)):
             if len(params[i])==2:
                 param=str(params[i][0])
                 val=params[i][1]
-                print "DEBUG: Param: ***%s*** Val: %s" % (param, str(val))
+                print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
                 
                 #if str(param).strip()=="adc1":
                 if param=="adc1":
@@ -176,7 +177,7 @@ class Serialport(protocol.Protocol):
                 elif str(param).strip()=="adc2":
                     cmd="/controls/engines/engine[1]/throttle"
                     self.fg[cmd]=float(val)/1023.0
-
+            
                 
                     
 
@@ -245,21 +246,20 @@ class AdminPortFactory(protocol.ServerFactory):
         p.factory = self
         return p
 
-#~ class TelnetFactory(protocol.clientFactory):
-    #~ """Factory to create Telnet interface to Flightgear protocol instances, an instanced
-    #~ SerialPort must be passed in."""
-    #~ protocol = EchoClient
-    #~ 
-    #~ def clientConnectionFailed(self, connector, reason):
-        #~ print "Connection failed - goodbye!"
-        #~ reactor.stop()
-    #~ 
-    #~ def clientConnectionLost(self, connector, reason):
-        #~ print "Connection lost - goodbye!"
-        #~ reactor.stop()
-#~ 
-    #~ def __init__(self, serial):
-        #~ self.serial = serial
+#class TelnetFactory(protocol.clientFactory):
+    #"""Factory to create Telnet interface to Flightgear protocol instances, an instanced SerialPort must be passed in."""
+    #protocol = EchoClient
+     
+    #def clientConnectionFailed(self, connector, reason):
+        #print "Connection failed - goodbye!"
+        #reactor.stop()
+     
+    #def clientConnectionLost(self, connector, reason):
+        #print "Connection lost - goodbye!"
+        #reactor.stop()
+ 
+    #def __init__(self, serial):
+        #self.serial = serial
 
 class FGFSPort(protocol.Protocol):
     """Create a TCP server connection and pass data from it to the
@@ -402,7 +402,7 @@ def main():
     #telnet_factory=TelnetFactory(serial_port)
 
     #reactor.connectTCP("localhost", 5500, telnet_factory)
-    #reactor.listenTCP(tcp_port, admin_port_factory)
+    reactor.listenTCP(tcp_port, admin_port_factory)
     #reactor.listenTCP(5555, fgfs_port_factory)
     
     print "Listening to admin port on %d and 5555" % ( tcp_port )
