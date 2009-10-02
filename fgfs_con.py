@@ -45,7 +45,11 @@ class Serialport(protocol.Protocol):
         #from FlightGear import FlightGear
         #from readlisp import *
 
-        # self.fg = FlightGear(hostname, 5500)
+        self.fg = FlightGear(hostname, 5500)
+        print "DEBUG: FG:", self.fg["/sim/aero"]
+        
+
+
         self.fgfstcp_ports = []
         
         self.serial = SerialPort(self, reactor, port, baudrate)
@@ -57,7 +61,7 @@ class Serialport(protocol.Protocol):
             self.log = file('%s-0' % log_name, 'w')
 
 
-        self.serial.write("(pin1);");
+        self.serial.write("(ver);");
 
         #self.serial.write("(A6006AOK (pin1 1));");
 
@@ -116,8 +120,9 @@ class Serialport(protocol.Protocol):
         print "Serial port has gone away. Shutting down..."
         reactor.stop()
 
-    def dataReceived(self, data):
-        """Pass any received data to the list of AdminPorts."""
+    def get_params(self, data):
+        #params=get_params(data)
+        
         len_data=len(data)
         print "SDR: write data: %s:%d" % (data.strip(), len_data)
         
@@ -133,6 +138,7 @@ class Serialport(protocol.Protocol):
 
         semi_pos=self.serial_buffer.find(";")
         if semi_pos > -1:
+            
             data_chunks=self.serial_buffer.split(";")
             s_string=data_chunks[0]
             print "DEBUG: data chunks: ", data_chunks
@@ -144,11 +150,43 @@ class Serialport(protocol.Protocol):
             print "DEBUG: Lisp length:", len(lisp_result);
             print "DEBUG TYPE:", type(lisp_result[1])
 
-            for i in range(1, len(lisp_result)):
-                if len(lisp_result[i])==2:
-                    param=lisp_result[i][0]
-                    val=lisp_result[i][1]
-                    print "DEBUG: Param: %s Val: %s" % (param, str(val))            
+            #for i in range(1, len(lisp_result)):
+            #    if len(lisp_result[i])==2:
+            #        param=lisp_result[i][0]
+            #        val=lisp_result[i][1]
+            #        print "DEBUG: Param: %s Val: %s" % (param, str(val))
+                    
+            return lisp_result
+        else:
+            return 0
+    
+    def process_params(self, params):
+        print "DEBUG SPP: params:", params
+        for i in range(1, len(params)):
+            if len(params[i])==2:
+                param=str(params[i][0])
+                val=params[i][1]
+                print "DEBUG: Param: ***%s*** Val: %s" % (param, str(val))
+                
+                #if str(param).strip()=="adc1":
+                if param=="adc1":
+                    cmd="/controls/engines/engine/throttle"
+                    print "DEBUG: SPP Cmd: %s val: %f" % (cmd, val/1023.0)
+                    self.fg[cmd]=float(val)/1023.0
+                elif str(param).strip()=="adc2":
+                    cmd="/controls/engines/engine[1]/throttle"
+                    self.fg[cmd]=float(val)/1023.0
+
+                
+                    
+
+    def dataReceived(self, data):
+        """Pass any received data to the list of AdminPorts."""
+        
+        result=self.get_params(data)
+        if result != 0:
+            self.process_params(result)
+        
             
         for tcp_port in self.admintcp_ports:
             tcp_port.write(data)
