@@ -45,8 +45,8 @@ class Serialport(protocol.Protocol):
         #from FlightGear import FlightGear
         #from readlisp import *
 
-        self.fg = FlightGear(hostname, 5500)
-        print "DEBUG: FG:", self.fg["/sim/aero"]
+        #self.fg = FlightGear(hostname, 5500)
+        #print "DEBUG: FG:", self.fg["/sim/aero"]
         
 
 
@@ -124,9 +124,9 @@ class Serialport(protocol.Protocol):
         #params=get_params(data)
         
         len_data=len(data)
-        print "SDR: write data: %s:%d" % (data.strip(), len_data)
+        print "SDR: write data: %s:%d" % (data, len_data)
         
-        self.serial_buffer+=data.strip()
+        self.serial_buffer+=data
         
         self.serial_buffer=self.serial_buffer.replace("(read jackpot)","")
         self.serial_buffer=self.serial_buffer.replace("(error overflow)","")
@@ -170,14 +170,20 @@ class Serialport(protocol.Protocol):
                 print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
                 
                 #if str(param).strip()=="adc1":
-                if param=="adc1":
-                    cmd="/controls/engines/engine/throttle"
-                    print "DEBUG: SPP Cmd: %s val: %f" % (cmd, val/1023.0)
-                    self.fg[cmd]=float(val)/1023.0
-                elif str(param).strip()=="adc2":
-                    cmd="/controls/engines/engine[1]/throttle"
-                    self.fg[cmd]=float(val)/1023.0
+                if param[:3] == "adc":
+                    if param=="adc1":
+                        cmd="/controls/engines/engine/throttle"
+                        
+                            
+                    elif str(param).strip()=="adc2":
+                        cmd="/controls/engines/engine[1]/throttle"
             
+                    print "DEBUG: SPP Cmd: %s val: %f" % (cmd, val/1023.0)
+                    try:
+                        self.fg[cmd]=float(val)/1023.0
+                    #except exceptions.AttributeError:
+                    except AttributeError:
+                        pass #do nothing
                 
                     
 
