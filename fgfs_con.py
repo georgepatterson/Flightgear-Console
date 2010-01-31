@@ -62,8 +62,8 @@ class Serialport(protocol.Protocol):
 
 
         self.serial.write("(ver);");
-
-        #self.serial.write("(A6006AOK (pin1 1));");
+        #self.serial.write("(gear 1);");
+        
 
     def add_admintcp(self, tcp_port):
         """Add a AdminPort to those receiving serial data."""
@@ -128,6 +128,7 @@ class Serialport(protocol.Protocol):
         
         self.serial_buffer+=data
         
+        self.serial_buffer=self.serial_buffer.replace("(time out error)","")
         self.serial_buffer=self.serial_buffer.replace("(read jackpot)","")
         self.serial_buffer=self.serial_buffer.replace("(error overflow)","")
         self.serial_buffer=self.serial_buffer.replace("(unknown command)","")
@@ -173,7 +174,7 @@ class Serialport(protocol.Protocol):
                 if param[:3] == "adc":
                     if param=="adc1":
                         cmd="/controls/engines/engine/throttle"
-                        
+                                        
                             
                     elif str(param).strip()=="adc2":
                         cmd="/controls/engines/engine[1]/throttle"
@@ -185,7 +186,11 @@ class Serialport(protocol.Protocol):
                     except AttributeError:
                         pass #do nothing
                 
-                    
+                if param[:3] == "pin":
+                    mesg="(gear %d);" % val
+                    print "DEBUG: Mesg: ", mesg  
+                    self.serial.write(mesg);
+                    #self.serial.write("(gear 1);");
 
     def dataReceived(self, data):
         """Pass any received data to the list of AdminPorts."""
