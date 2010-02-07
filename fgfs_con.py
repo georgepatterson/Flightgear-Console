@@ -1,23 +1,22 @@
 #!/usr/bin/env python
-# Copyright (c) 2009 George Patterson
+# Copyright (c) 2009, 2010 George Patterson
 
+# Release under GPLv3 
 """Transfer data between a serial port and one (or more) TCP
 connections.
     options:
-    -h, --help:        this help
+    -h, --help:     this help
     -p, --port=PORT: port, a number, default = /dev/arduino or can use
                         a numeric value or a device name such as /dev/ttyUSB0
     -b, --baud=BAUD: baudrate, default 38400
     -t, --tcp=PORT: TCP port number, (admin) default 1234
-    -l, --log: log data streams to 'snifter-0', 'snifter-1'
-    -L, --log_name=NAME: log data streams to '<NAME>-0', '<NAME>-1'
 """
 # Operating Parameters:
 #   - Entire server needs to be shutdown when changing planes in Flightgear.
-#       This is because it's necessary to create flightgear as a server
-#       as well as a client. Might be other ways to write this stuff.
+#      This is because it's necessary to create flightgear as a server
+#      as well as a client. Might be other ways to write this stuff.
 #   - Currently there is no authentication nor classes for the admin
-#       protocol. This will need to be changed before offical release.
+#      protocol. This will need to be changed before offical release.
 
 from twisted.internet import reactor, protocol
 from twisted.internet.serialport import SerialPort
@@ -32,6 +31,7 @@ import sys
 import getopt
 from FlightGear import FlightGear
 from readlisp import *
+from serial import Serial
 hostname="192.168.1.104"
 
 # FIXME set serial buffer size? SEND_LIMIT
@@ -48,18 +48,24 @@ class Serialport(protocol.Protocol):
         #self.fg = FlightGear(hostname, 5500)
         #print "DEBUG: FG:", self.fg["/sim/aero"]
         
-
-
         self.fgfstcp_ports = []
-        
+
         self.serial = SerialPort(self, reactor, port, baudrate)
+
+        #The following doesn't work. :-/
+        #try:
+        #   self.serial = SerialPort(self, reactor, port, baudrate)
+        #except self.serial.serialutil.SerialException:
+        #   print "Error: Arduino interface not found.\n"
+        #   print "Please ensure that the FG Console is plugged into a working USB port and try running this program again.\n"
+        #   print "The other possibibiliy is that the device name is not /dev/arduino. Please see documentation for details.\n"
+        
         self.serial.registerProducer(self, True)
         self.serial_buffer=""
         self.paused = False
         self.log = None
         if log_name is not None:
             self.log = file('%s-0' % log_name, 'w')
-
 
         self.serial.write("(ver);");
         #self.serial.write("(gear 1);");
@@ -152,10 +158,10 @@ class Serialport(protocol.Protocol):
             print "DEBUG TYPE:", type(lisp_result[1])
 
             #for i in range(1, len(lisp_result)):
-            #    if len(lisp_result[i])==2:
-            #        param=lisp_result[i][0]
-            #        val=lisp_result[i][1]
-            #        print "DEBUG: Param: %s Val: %s" % (param, str(val))
+            #   if len(lisp_result[i])==2:
+            #       param=lisp_result[i][0]
+            #       val=lisp_result[i][1]
+            #       print "DEBUG: Param: %s Val: %s" % (param, str(val))
                     
             return lisp_result
         else:
@@ -175,11 +181,11 @@ class Serialport(protocol.Protocol):
                     if param=="adc1":
                         cmd="/controls/engines/engine/throttle"
                                         
-                            
                     elif str(param).strip()=="adc2":
                         cmd="/controls/engines/engine[1]/throttle"
             
-                    print "DEBUG: SPP Cmd: %s val: %f" % (cmd, val/1023.0)
+                    #print "DEBUG: SPP Cmd: %s val: %f" % (cmd, val/1023.0)
+                    
                     try:
                         self.fg[cmd]=float(val)/1023.0
                     #except exceptions.AttributeError:
@@ -187,10 +193,20 @@ class Serialport(protocol.Protocol):
                         pass #do nothing
                 
                 if param[:3] == "pin":
-                    mesg="(gear %d);" % val
-                    print "DEBUG: Mesg: ", mesg  
-                    self.serial.write(mesg);
-                    #self.serial.write("(gear 1);");
+                    pinNo=param[3:]
+                    
+                    if pinNo == "1":
+                        mesg="(pin8 %d);" % val
+                        #print "DEBUG: Mesg: ", mesg
+                        self.serial.write(mesg);
+                        #self.serial.write("(gear 1);");
+                    elif pinNo == "2":
+                        print "DEBUG: Pin2 has been toggled... NoOp..."
+                    elif pinNo == "3":
+                        mesg="(pin11 %d);" % val
+                        print "DEBUG: Mesg: ", mesg  
+                        self.serial.write(mesg)
+                        #print "DEBUG: Pin3 has been toggled... No Operation taken..."
 
     def dataReceived(self, data):
         """Pass any received data to the list of AdminPorts."""
