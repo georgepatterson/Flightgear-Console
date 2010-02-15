@@ -25,14 +25,14 @@ from twisted.internet import protocol, interfaces
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.protocol import ClientFactory
 
-#import serial #get the serial constants
+import serial #get the serial constants
 import gc
 import sys
 import getopt
 from FlightGear import FlightGear
 from readlisp import *
 from serial import Serial
-hostname="192.168.1.104"
+hostname="192.168.1.100"
 
 # FIXME set serial buffer size? SEND_LIMIT
 
@@ -50,15 +50,14 @@ class Serialport(protocol.Protocol):
         
         self.fgfstcp_ports = []
 
-        self.serial = SerialPort(self, reactor, port, baudrate)
-
         #The following doesn't work. :-/
-        #try:
-        #   self.serial = SerialPort(self, reactor, port, baudrate)
-        #except self.serial.serialutil.SerialException:
-        #   print "Error: Arduino interface not found.\n"
-        #   print "Please ensure that the FG Console is plugged into a working USB port and try running this program again.\n"
-        #   print "The other possibibiliy is that the device name is not /dev/arduino. Please see documentation for details.\n"
+        try:
+           self.serial = SerialPort(self, reactor, port, baudrate)
+        except serial.SerialException:
+            print "Error: Arduino interface not found.\n"
+            print "Please ensure that the FG Console is plugged into a working USB port and try running this program again.\n"
+            print "The other possibibiliy is that the device name is not /dev/arduino. Please see documentation for details.\n"
+            sys.exit(0)
         
         self.serial.registerProducer(self, True)
         self.serial_buffer=""
@@ -133,7 +132,8 @@ class Serialport(protocol.Protocol):
         print "SDR: write data: %s:%d" % (data, len_data)
         
         self.serial_buffer+=data
-        
+
+        #remove the details 
         self.serial_buffer=self.serial_buffer.replace("(time out error)","")
         self.serial_buffer=self.serial_buffer.replace("(read jackpot)","")
         self.serial_buffer=self.serial_buffer.replace("(error overflow)","")
@@ -178,19 +178,29 @@ class Serialport(protocol.Protocol):
                 
                 #if str(param).strip()=="adc1":
                 if param[:3] == "adc":
+                    cmd=""
                     if param=="adc1":
                         cmd="/controls/engines/engine/throttle"
-                                        
+                        control_pos= val/1023.0
                     elif str(param).strip()=="adc2":
                         cmd="/controls/engines/engine[1]/throttle"
-            
-                    #print "DEBUG: SPP Cmd: %s val: %f" % (cmd, val/1023.0)
+                        control_pos= val/1023.0
+                    elif str(param).strip()=="adc3":
+                        cmd="/controls/engines/engine/prop-pitch"
+                        control_pos= val/1023.0
+                    elif str(param).strip()=="adc4":
+                        cmd="/controls/engines/engine[1]/prop-pitch"
+                        control_pos= val/1023.0
+                        
+                    #elif str(param).strip() == "pin2":
+
+                    print "DEBUG: SPP Cmd: %s val: %f" % (cmd, control_pos)
                     
-                    try:
-                        self.fg[cmd]=float(val)/1023.0
+                    #try:
+                    #    self.fg[cmd]=float(val)/1023.0
                     #except exceptions.AttributeError:
-                    except AttributeError:
-                        pass #do nothing
+                    #except AttributeError:
+                    #    pass #do nothing
                 
                 if param[:3] == "pin":
                     pinNo=param[3:]
@@ -208,6 +218,13 @@ class Serialport(protocol.Protocol):
                         self.serial.write(mesg)
                         #print "DEBUG: Pin3 has been toggled... No Operation taken..."
 
+                #try:
+                #    self.fg[cmd]=control_pos
+                #    #except exceptions.AttributeError:
+                #except AttributeError:
+                #    pass #do nothing
+
+
     def dataReceived(self, data):
         """Pass any received data to the list of AdminPorts."""
         
@@ -221,6 +238,7 @@ class Serialport(protocol.Protocol):
         for tcp_port in self.fgfstcp_ports:
             tcp_port.write(data)
                 
+
 class AdminPort(protocol.Protocol):
     """Create a TCP server connection and pass data from it to the
     serial port."""
@@ -288,9 +306,11 @@ class AdminPortFactory(protocol.ServerFactory):
     #def __init__(self, serial):
         #self.serial = serial
 
+
+"""
+Create a TCP server connection and pass data from it to the
+serial port."""
 class FGFSPort(protocol.Protocol):
-    """Create a TCP server connection and pass data from it to the
-    serial port."""
 
     def __init__(self, serial, log_name, index):
         #Expected number of chunks... May not be used.
@@ -420,21 +440,24 @@ def main():
             log_name = 'snifter'
         elif o in ("-L", "--log_name"):
             log_name = a
-    
-    serial_port = Serialport(reactor, tty_port, baudrate, log_name)
 
-    admin_port_factory = AdminPortFactory(serial_port, log_name)
-    #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
+    try:
+        serial_port = Serialport(reactor, tty_port, baudrate, log_name)
+    except serial.SerialException:
+        print "Serial port not found... Please check connections and try again"
+    else:
+        admin_port_factory = AdminPortFactory(serial_port, log_name)
+        #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
 
-    #telnet_factory=TelnetFactory(serial_port)
+        #telnet_factory=TelnetFactory(serial_port)
 
-    #reactor.connectTCP("localhost", 5500, telnet_factory)
-    reactor.listenTCP(tcp_port, admin_port_factory)
-    #reactor.listenTCP(5555, fgfs_port_factory)
-    
-    print "Listening to admin port on %d and 5555" % ( tcp_port )
+        #reactor.connectTCP("localhost", 5500, telnet_factory)
+        reactor.listenTCP(tcp_port, admin_port_factory)
+        #reactor.listenTCP(5555, fgfs_port_factory)
+        
+        print "Listening to admin port on %d and 5555" % ( tcp_port )
 
-    reactor.run()
+        reactor.run()
 
 if __name__ == "__main__":
     main()
