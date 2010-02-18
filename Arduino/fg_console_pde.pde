@@ -1,14 +1,14 @@
 #include <AikoEvents.h> 
 using namespace Aiko;
 
-#define ver  "0.6.01-20100207"
+#define ver  "0.6.03-20100218"
 
 // The following will be dependent on the Arduino in question. 
 //    Need to implement ifdefs to cover them. (168, 328, Mega)
 
-#define maxIO    26  // CheckPlease!!
+#define maxIO    13 
 #define maxADC    6
-#define maxPWM    5  // CheckPlease!!
+#define maxPWM    6
 
 
 //The following could be handled dynamically. 
@@ -30,12 +30,16 @@ using namespace Aiko;
 #define pin10 10
 #define pin11 11
 
-#define arduinoId "A6006AHI"
+//TODO This constant should be stored in eeprom and based on a uuid.
+#define arduinoId "A6006AHI" 
 
 int incomingByte=0;
 char cmd[20];
 byte numADC=0;
 byte numIO=0;
+byte usedADC=4;
+
+byte pinAdc;
 
 //char buf[20];
 
@@ -57,15 +61,15 @@ void init_ard()
 
 void setup()
 {
-  init_ard();
   Serial.begin(38400);
+  init_ard();
 
   //Serial.println("(ready)");
-  //Events.addHandler(blinkLed,      200);
-  Events.addHandler(serialHandler, 20);
-  Events.addHandler(switchHandler, 25);
-  //Events.addHandler(ledHandler,    100); //test purposes only...
-  Events.addHandler(potHandler,    30);
+  //Events.addHandler(blinkLed,        200);
+  Events.addHandler(serialHandler,   20);
+  Events.addHandler(switchHandler,   25);
+  //Events.addHandler(ledHandler,      100); //test purposes only...
+  Events.addHandler(potHandler,      30);
 }
 
 /*
@@ -142,47 +146,79 @@ void ledHandler() {
 }
 
 void potHandler() {
-  static int old_Adc1_val=1023; 
-  static int old_Adc2_val=1023;
-  static int old_Adc3_val=1023;
-  static int old_Adc4_val=1023;
-  static byte jitter_offset=1;
-  //define jitter_offset 2
+  //static int old_Adc1_val=1023; 
+  //static int old_Adc2_val=1023;
+  //static int old_Adc3_val=1023;
+  //static int old_Adc4_val=1023;
+  //static int old_Adc5_val=1023;
+  //static int old_Adc6_val=1023;
+  static byte jitter_offset=3;
 
-  /*
-  int new_Adc1_val;
-  #int new_Adc2_val;
-  #int new_Adc3_val;
-  #int new_Adc4_val;
-  */
+  static int old_Adc_val[] ={1023, 1023, 1023, 1023, 1023, 1023};
+
   int adc_val;
   byte started_str;
+  
 
-  /*new_Adc1_val=analogRead(Adc1);
-  new_Adc2_val=analogRead(Adc2);
-  new_Adc3_val=analogRead(Adc3);
-  new_Adc4_val=analogRead(Adc4);
-  */
-  //Serial.println(new_Adc1_val);
-
-  adc_val=analogRead(Adc1);
   started_str=0;
-  if (new_Adc1_val < (old_Adc1_val-jitter_offset)  ||  new_Adc1_val > (old_Adc1_val+jitter_offset) ) {
+  
+  for(int i=0; i<4;i++) { // TODO:  Change the 4 to numAdc..
+    adc_val=analogRead(i);
+  
+    if (adc_val < (old_Adc_val[i]-jitter_offset)  ||  adc_val > (old_Adc_val[i]+jitter_offset) ) {
+      if (started_str==0)
+      {
+        Serial.print("(");
+        Serial.print(arduinoId);
+        Serial.print(" ");
+      } 
+      
+      started_str=1;
+      //Serial.print("(adc");
+      Serial.print(i);
+      Serial.print(" ");
+      Serial.print(adc_val);
+      Serial.print(")");
+    }
+  } 
+ 
+  if (started_str==1) {
+    Serial.println(");");
+  }
+  
+  /*
+  adc_val=analogRead(Adc1);
+  if (adc_val < (old_Adc1_val-jitter_offset)  ||  adc_val > (old_Adc1_val+jitter_offset) ) {
     started_str=1;
-    old_Adc1_val=new_Adc1_val;
+    old_Adc1_val=adc_val;
 
     Serial.print("(");
     Serial.print(arduinoId);
     Serial.print(" ");
     Serial.print("(adc1 ");
-    Serial.print(new_Adc1_val);
+    Serial.print(adc_val);
+    Serial.print(")");
+  }
+  
+  adc_val=analogRead(Adc1);
+  if (adc_val < (old_Adc1_val-jitter_offset)  ||  adc_val > (old_Adc1_val+jitter_offset) ) {
+    old_Adc1_val=adc_val;
+    if (started_str==0)
+    {
+      Serial.print("(");
+      Serial.print(arduinoId);
+      Serial.print(" ");
+    } 
+    started_str=1;
+    Serial.print("(adc1 ");
+    Serial.print(adc_val);
     Serial.print(")");
   }
 
 
-
-  if (new_Adc2_val < (old_Adc2_val-jitter_offset)  ||  new_Adc2_val > (old_Adc2_val+jitter_offset) ) {
-    old_Adc2_val=new_Adc2_val;
+  adc_val=analogRead(Adc2);
+  if (adc_val < (old_Adc2_val-jitter_offset)  ||  adc_val > (old_Adc2_val+jitter_offset) ) {
+    old_Adc2_val=adc_val;
     if (started_str==0)
     {
       Serial.print("(");
@@ -191,12 +227,13 @@ void potHandler() {
     } 
     started_str=1;
     Serial.print("(adc2 ");
-    Serial.print(new_Adc2_val);
+    Serial.print(adc_val);
     Serial.print(")");
   }
 
-  if (new_Adc3_val < (old_Adc3_val-jitter_offset)  ||  new_Adc3_val > (old_Adc3_val+jitter_offset) ) {
-    old_Adc3_val=new_Adc3_val;
+  adc_val=analogRead(Adc3);
+  if (adc_val < (old_Adc3_val-jitter_offset)  ||  adc_val > (old_Adc3_val+jitter_offset) ) {
+    old_Adc3_val=adc_val;
     if (started_str==0)
     {
       Serial.print("(");
@@ -205,12 +242,13 @@ void potHandler() {
     } 
     started_str=1;
     Serial.print("(adc3 ");
-    Serial.print(new_Adc3_val);
+    Serial.print(adc_val);
     Serial.print(")");
   }
   
-  if (new_Adc4_val < (old_Adc4_val-jitter_offset)  ||  new_Adc4_val > (old_Adc4_val+jitter_offset) ) {
-    old_Adc4_val=new_Adc4_val;
+  adc_val=analogRead(Adc4);
+  if (adc_val < (old_Adc4_val-jitter_offset)  ||  adc_val > (old_Adc4_val+jitter_offset) ) {
+    old_Adc4_val=adc_val;
     if (started_str==0)
     {
       Serial.print("(");
@@ -219,18 +257,17 @@ void potHandler() {
     } 
     started_str=1;
     Serial.print("(adc4 ");
-    Serial.print(new_Adc4_val);
+    Serial.print(adc_val);
     Serial.print(")");
   }
-
-  if (started_str==1) {
-    Serial.println(");");
-  }
+  
 
 
+  */
 }
 
 void switchHandler() {
+  //static int pinvals[6];
   static int old_Pin1_val;
   static int old_Pin2_val;
   static int old_Pin3_val;
@@ -334,13 +371,14 @@ void processCommand(char *buf) {
   {
     digitalWrite(pin11, 1);
   }
-  else if (strcmp(buf, "(pin11 0)") == 0 )
+  /*else if (strcmp(buf, "(pin11 0)") == 0 )
   {
     digitalWrite(pin11, 0);
   } 
   else {
     Serial.println("(unknown command)");
   }
+  */
 }
 
 void loop() {
