@@ -1,7 +1,7 @@
 #include <AikoEvents.h> 
 using namespace Aiko;
 
-#define ver  "0.6.03-20100218"
+#define ver  "0.6.04-20100219"
 
 // The following will be dependent on the Arduino in question. 
 //    Need to implement ifdefs to cover them. (168, 328, Mega)
@@ -96,16 +96,11 @@ void serialHandler() {
   }
   else 
   {
-    /*Serial.print("(readCount ");
-     Serial.print(count);
-     Serial.println(")");
-     */
-
     for (byte index = 0; index < count; index++) {
       char ch = Serial.read();
       //Serial.println(ch);
       if (ch == ';') {
-        Serial.println("(read jackpot)"); // DON'T JACKPOT IF BUFFER HAS OVERFLOWED !
+        //Serial.println("(read jackpot)"); // DON'T JACKPOT IF BUFFER HAS OVERFLOWED !
         buffer[length]=0;
         //Serial.println(buffer);
         processCommand(buffer);
@@ -162,7 +157,7 @@ void potHandler() {
 
   started_str=0;
   
-  for(int i=0; i<4;i++) { // TODO:  Change the 4 to numAdc..
+  for(int i=0; i<4; i++) { // TODO:  Change the 4 to numAdc..
     adc_val=analogRead(i);
   
     if (adc_val < (old_Adc_val[i]-jitter_offset)  ||  adc_val > (old_Adc_val[i]+jitter_offset) ) {
@@ -174,11 +169,15 @@ void potHandler() {
       } 
       
       started_str=1;
-      //Serial.print("(adc");
-      Serial.print(i);
+      //Serial.print("DEBUG: old_Adc_val[1]: ");
+      //Serial.println(old_Adc_val[1]);
+      
+      Serial.print("(adc");
+      Serial.print((i+1));
       Serial.print(" ");
-      Serial.print(adc_val);
+      Serial.print(adc_val+1);
       Serial.print(")");
+      old_Adc_val[i]=adc_val;
     }
   } 
  
@@ -186,84 +185,6 @@ void potHandler() {
     Serial.println(");");
   }
   
-  /*
-  adc_val=analogRead(Adc1);
-  if (adc_val < (old_Adc1_val-jitter_offset)  ||  adc_val > (old_Adc1_val+jitter_offset) ) {
-    started_str=1;
-    old_Adc1_val=adc_val;
-
-    Serial.print("(");
-    Serial.print(arduinoId);
-    Serial.print(" ");
-    Serial.print("(adc1 ");
-    Serial.print(adc_val);
-    Serial.print(")");
-  }
-  
-  adc_val=analogRead(Adc1);
-  if (adc_val < (old_Adc1_val-jitter_offset)  ||  adc_val > (old_Adc1_val+jitter_offset) ) {
-    old_Adc1_val=adc_val;
-    if (started_str==0)
-    {
-      Serial.print("(");
-      Serial.print(arduinoId);
-      Serial.print(" ");
-    } 
-    started_str=1;
-    Serial.print("(adc1 ");
-    Serial.print(adc_val);
-    Serial.print(")");
-  }
-
-
-  adc_val=analogRead(Adc2);
-  if (adc_val < (old_Adc2_val-jitter_offset)  ||  adc_val > (old_Adc2_val+jitter_offset) ) {
-    old_Adc2_val=adc_val;
-    if (started_str==0)
-    {
-      Serial.print("(");
-      Serial.print(arduinoId);
-      Serial.print(" ");
-    } 
-    started_str=1;
-    Serial.print("(adc2 ");
-    Serial.print(adc_val);
-    Serial.print(")");
-  }
-
-  adc_val=analogRead(Adc3);
-  if (adc_val < (old_Adc3_val-jitter_offset)  ||  adc_val > (old_Adc3_val+jitter_offset) ) {
-    old_Adc3_val=adc_val;
-    if (started_str==0)
-    {
-      Serial.print("(");
-      Serial.print(arduinoId);
-      Serial.print(" ");
-    } 
-    started_str=1;
-    Serial.print("(adc3 ");
-    Serial.print(adc_val);
-    Serial.print(")");
-  }
-  
-  adc_val=analogRead(Adc4);
-  if (adc_val < (old_Adc4_val-jitter_offset)  ||  adc_val > (old_Adc4_val+jitter_offset) ) {
-    old_Adc4_val=adc_val;
-    if (started_str==0)
-    {
-      Serial.print("(");
-      Serial.print(arduinoId);
-      Serial.print(" ");
-    } 
-    started_str=1;
-    Serial.print("(adc4 ");
-    Serial.print(adc_val);
-    Serial.print(")");
-  }
-  
-
-
-  */
 }
 
 void switchHandler() {
@@ -367,18 +288,26 @@ void processCommand(char *buf) {
   {
     digitalWrite(pin9, 0);
   }
+  else if (strcmp(buf, "(pin10 1)") == 0 )
+  {
+    digitalWrite(pin10, 1);
+  }
+  else if (strcmp(buf, "(pin10 0)") == 0 )
+  {
+    digitalWrite(pin10, 0);
+  }
   else if (strcmp(buf, "(pin11 1)") == 0 )
   {
     digitalWrite(pin11, 1);
   }
-  /*else if (strcmp(buf, "(pin11 0)") == 0 )
+  else if (strcmp(buf, "(pin11 0)") == 0 )
   {
     digitalWrite(pin11, 0);
   } 
   else {
     Serial.println("(unknown command)");
   }
-  */
+  
 }
 
 void loop() {
