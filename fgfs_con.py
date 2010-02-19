@@ -25,6 +25,10 @@ from twisted.internet import protocol, interfaces
 from twisted.protocols.basic import LineReceiver
 from twisted.internet.protocol import ClientFactory
 
+#Added on 20100219
+from twisted.internet.protocol import DatagramProtocol
+from time import *
+
 import serial #get the serial constants
 import gc
 import sys
@@ -32,7 +36,10 @@ import getopt
 from FlightGear import FlightGear
 from readlisp import *
 from serial import Serial
-hostname="192.168.1.100"
+import time
+
+hostname="192.168.1.104"
+
 
 # FIXME set serial buffer size? SEND_LIMIT
 
@@ -66,7 +73,7 @@ class Serialport(protocol.Protocol):
         if log_name is not None:
             self.log = file('%s-0' % log_name, 'w')
 
-        self.serial.write("(ver);");
+        #self.serial.write("(ver);");
         #self.serial.write("(gear 1);");
         
 
@@ -93,8 +100,8 @@ class Serialport(protocol.Protocol):
 
     def write(self, data):
         """Write data to the serial port."""
-        gear_data=data[6:7]
-        data= "(gear %s);\r" % (gear_data)
+        #gear_data=data[6:7]
+        #data= "(gear %s);\r" % (gear_data)
         self.serial.write(data)
         len_data=len(data)
         print "SW: write data: %s:%d" % (data.strip(), len_data)
@@ -133,7 +140,8 @@ class Serialport(protocol.Protocol):
         
         self.serial_buffer+=data
 
-        #remove the details 
+        #remove the serial test code from the data stream.
+        self.serial_buffer=self.serial_buffer.replace("(init)","")
         self.serial_buffer=self.serial_buffer.replace("(time out error)","")
         self.serial_buffer=self.serial_buffer.replace("(read jackpot)","")
         self.serial_buffer=self.serial_buffer.replace("(error overflow)","")
@@ -148,21 +156,15 @@ class Serialport(protocol.Protocol):
             
             data_chunks=self.serial_buffer.split(";")
             s_string=data_chunks[0]
-            print "DEBUG: data chunks: ", data_chunks
+            #print "DEBUG: data chunks: ", data_chunks
             self.serial_buffer=self.serial_buffer[semi_pos+1:]
 
             
             lisp_result= readlisp(s_string)
-            print "DEBUG: Lisp Result:", lisp_result
-            print "DEBUG: Lisp length:", len(lisp_result);
-            print "DEBUG TYPE:", type(lisp_result[1])
-
-            #for i in range(1, len(lisp_result)):
-            #   if len(lisp_result[i])==2:
-            #       param=lisp_result[i][0]
-            #       val=lisp_result[i][1]
-            #       print "DEBUG: Param: %s Val: %s" % (param, str(val))
-                    
+            #print "DEBUG: Lisp Result:", lisp_result
+            #print "DEBUG: Lisp length:", len(lisp_result);
+            #print "DEBUG TYPE:", type(lisp_result[1])
+            
             return lisp_result
         else:
             return 0
@@ -174,23 +176,23 @@ class Serialport(protocol.Protocol):
             if len(params[i])==2:
                 param=str(params[i][0])
                 val=params[i][1]
-                print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
+                #print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
                 
-                #if str(param).strip()=="adc1":
+                cmd=""
+                control_pos=""
                 if param[:3] == "adc":
-                    cmd=""
                     if param=="adc1":
                         cmd="/controls/engines/engine/throttle"
-                        control_pos= val/1023.0
+                        control_pos= (val-1)/1023.0
                     elif str(param).strip()=="adc2":
                         cmd="/controls/engines/engine[1]/throttle"
-                        control_pos= val/1023.0
+                        control_pos= (val-1)/1023.0
                     elif str(param).strip()=="adc3":
                         cmd="/controls/engines/engine/prop-pitch"
-                        control_pos= val/1023.0
+                        control_pos= (val-1)/1023.0
                     elif str(param).strip()=="adc4":
                         cmd="/controls/engines/engine[1]/prop-pitch"
-                        control_pos= val/1023.0
+                        control_pos= (val-1)/1023.0
                         
                     #elif str(param).strip() == "pin2":
 
@@ -206,17 +208,25 @@ class Serialport(protocol.Protocol):
                     pinNo=param[3:]
                     
                     if pinNo == "1":
+                        #print "ERROR: Shouldn't be here"
                         mesg="(pin8 %d);" % val
-                        #print "DEBUG: Mesg: ", mesg
+                        print "DEBUG: Mesg: ", mesg
                         self.serial.write(mesg);
                         #self.serial.write("(gear 1);");
                     elif pinNo == "2":
-                        print "DEBUG: Pin2 has been toggled... NoOp..."
-                    elif pinNo == "3":
-                        mesg="(pin11 %d);" % val
+                        mesg="(pin9 %d);" % val
                         print "DEBUG: Mesg: ", mesg  
                         self.serial.write(mesg)
-                        #print "DEBUG: Pin3 has been toggled... No Operation taken..."
+                        mesg="(pin10 %d);" % val
+                        print "DEBUG: Mesg: ", mesg  
+                        self.serial.write(mesg)
+
+                    #elif pinNo == "3":
+                    #    mesg="(pin11 %d);" % val
+                    #    print "SPP: DEBUG: Mesg: ", mesg  
+                    #    self.serial.write(mesg)
+                    #    #print "DEBUG: Pin3 has been toggled... No Operation taken..."
+                    #time.sleep(0.001)
 
                 #try:
                 #    self.fg[cmd]=control_pos
@@ -379,7 +389,57 @@ class FGFSPort(protocol.Protocol):
  
 
 
-class FGFSPortFactory(protocol.ServerFactory):
+class FGFS_IN(DatagramProtocol):
+    """
+    Data chunk order
+        Gear/position_norm
+        Gear[1]/position_norm
+        Gear[2]/position_norm
+        Engine/running
+    """
+
+    def __init__(self, serial):
+        sleep(5)
+        #self.data_chunks_label=[]
+        #self.data_chunks_label.append("gear/postion-norm")
+        #self.data_chunks_label.append("gear[1]/postion-norm")
+        #self.data_chunks_label.append("gear[2]/postion-norm")
+        #self.data_chunks_label.append("engine/running")
+
+        self.data_chunks_label = "gear/postion-norm", "gear[1]/postion-norm","gear[2]/postion-norm", "engine/running"
+
+        self.serial=serial
+        print self.data_chunks_label
+        self.gear_pos= ("","","")
+        self.engine_running=("")
+        #self.gear_pos[0]=""
+        self.data_chunks_vals={}
+        for i in range(len(self.data_chunks_label)):
+            self.data_chunks_vals[self.data_chunks_label[i]] =""
+
+        #print "DEBUG: ", self.data_chunks_vals 
+
+        
+    def datagramReceived(self, data, (host, port)):
+        #print "received %r from %s:%d" % (data, host, port)
+        #self.transport.write(data, (host, port))
+        data_chunks=data.split("\t")
+
+        for i in range(len(self.data_chunks_label)):
+            #print self.data_chunks_label[i], data_chunks[i] #, data_chunks[1], data_chunks[2],data_chunks[3]
+            old_val=self.data_chunks_vals[self.data_chunks_label[i]]
+            if ( old_val =="" or old_val != data_chunks[i]):
+                self.data_chunks_vals[self.data_chunks_label[i]]= data_chunks[i]
+
+                print "VALUE CHANGED!:", self.data_chunks_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_chunks_label[i]]
+                if (i==3):
+                    mesg="(pin11 %s);" %  self.data_chunks_vals[self.data_chunks_label[i]]
+                    print "DEBUG: Mesg: ", mesg  
+                    self.serial.write(mesg)
+                
+
+
+class FGFS_INFactory(protocol.ServerFactory):
     """Factory to create AdminPort protocol instances, an instanced
     SerialPort must be passed in."""
 
@@ -390,7 +450,7 @@ class FGFSPortFactory(protocol.ServerFactory):
 
     def buildProtocol(self, addr):
         """Build a FGFSPort, passing in the instanced SerialPort."""
-        p = FGFSPort(self.serial, self.log_name, self.index)
+        p = FGFS_IN(self.serial, self.log_name, self.index)
         self.index += 1
         p.factory = self
         return p
@@ -446,13 +506,16 @@ def main():
     except serial.SerialException:
         print "Serial port not found... Please check connections and try again"
     else:
-        admin_port_factory = AdminPortFactory(serial_port, log_name)
+        #admin_port_factory = AdminPortFactory(serial_port, log_name)
         #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
 
         #telnet_factory=TelnetFactory(serial_port)
 
         #reactor.connectTCP("localhost", 5500, telnet_factory)
-        reactor.listenTCP(tcp_port, admin_port_factory)
+        #reactor.listenUDP(6000, FGFS_INFactory(serial_port))
+        reactor.listenUDP(6000, FGFS_IN(serial_port) )
+
+        #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
         print "Listening to admin port on %d and 5555" % ( tcp_port )

@@ -12,23 +12,23 @@ using namespace Aiko;
 
 
 //The following could be handled dynamically. 
+#define Adc1 0 
+#define Adc2 1
+#define Adc3 2
+#define Adc4 3
 #define Pin1 2
 #define Pin2 3
 #define Pin3 4
 #define Pin4 5
 
 
-#define Adc1 0 
-#define Adc2 1
-#define Adc3 2
-#define Adc4 3
-
-#define ledPin 13
-
 #define pin8 8
 #define pin9 9
 #define pin10 10
 #define pin11 11
+
+#define ledPin 13
+
 
 //TODO This constant should be stored in eeprom and based on a uuid.
 #define arduinoId "A6006AHI" 
@@ -146,8 +146,8 @@ void potHandler() {
   //static int old_Adc3_val=1023;
   //static int old_Adc4_val=1023;
   //static int old_Adc5_val=1023;
-  //static int old_Adc6_val=1023;
-  static byte jitter_offset=3;
+  //static int old_Adc6_val=1023
+  static byte jitter_offset=1;
 
   static int old_Adc_val[] ={1023, 1023, 1023, 1023, 1023, 1023};
 
@@ -167,10 +167,8 @@ void potHandler() {
         Serial.print(arduinoId);
         Serial.print(" ");
       } 
-      
+ 
       started_str=1;
-      //Serial.print("DEBUG: old_Adc_val[1]: ");
-      //Serial.println(old_Adc_val[1]);
       
       Serial.print("(adc");
       Serial.print((i+1));
@@ -267,7 +265,7 @@ void processCommand(char *buf) {
   }
   else if (strcmp(buf, "(numIO)") == 0 )
   {
-    Serial.println("(debug mode: numIO");
+    Serial.println("(debug mode: numIO)");
     Serial.print("(numIO ");
     Serial.print(int(numIO));
     Serial.print(")");
