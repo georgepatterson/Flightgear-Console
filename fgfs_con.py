@@ -136,7 +136,7 @@ class Serialport(protocol.Protocol):
         #params=get_params(data)
         
         len_data=len(data)
-        print "SDR: write data: %s:%d" % (data, len_data)
+        #print "SDR: write data: %s:%d" % (data, len_data)
         
         self.serial_buffer+=data
 
@@ -149,7 +149,7 @@ class Serialport(protocol.Protocol):
         self.serial_buffer=self.serial_buffer.replace("\n","")
         self.serial_buffer=self.serial_buffer.replace("\r","")
 
-        print "SDR: buffer: %s" % (self.serial_buffer.strip())
+        #print "SDR: buffer: %s" % (self.serial_buffer.strip())
 
         semi_pos=self.serial_buffer.find(";")
         if semi_pos > -1:
