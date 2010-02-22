@@ -4,7 +4,7 @@ using namespace Aiko;
 #define ver  "0.6.04-20100219"
 
 // The following will be dependent on the Arduino in question. 
-//    Need to implement ifdefs to cover them. (168, 328, Mega)
+//    Should implement ifdefs to cover them. (168, 328, Mega)
 
 #define maxIO    13 
 #define maxADC    6
