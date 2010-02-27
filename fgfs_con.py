@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 # Copyright (c) 2009, 2010 George Patterson
 
-# Release under GPLv3 
+# Release under GPLv3
+ 
 """Transfer data between a serial port and one (or more) TCP
 connections.
     options:
@@ -102,35 +103,36 @@ class Serialport(protocol.Protocol):
         """Write data to the serial port."""
         #gear_data=data[6:7]
         #data= "(gear %s);\r" % (gear_data)
-        self.serial.write(data)
+        
         len_data=len(data)
         print "SW: write data: %s:%d" % (data.strip(), len_data)
         if self.log:
             self.log.write(data)
+        self.serial.write(data)
 
-    def pauseProducing(self):
-        """Pause producing event"""
-        print "pause producing"
-        self.paused = True
-        for port in self.admintcp_ports:
-            port.transport.pauseProducing()
-        for port in self.fgfstcp_ports:
-            port.transport.pauseProducing()
+    #def pauseProducing(self):
+    #    """Pause producing event"""
+    #    print "pause producing"
+    #    self.paused = True
+    #    for port in self.admintcp_ports:
+    #        port.transport.pauseProducing()
+    #    for port in self.fgfstcp_ports:
+    #        port.transport.pauseProducing()
         
 
-    def resumeProducing(self):
-        """Resume producing event"""
-        print "resume producing"
-        self.paused = False
-        for port in self.admintcp_ports:
-            port.transport.resumeProducing()
-        for port in self.fgfstcp_ports:
-            port.transport.resumeProducing()
+    #def resumeProducing(self):
+    #    """Resume producing event"""
+    #    print "resume producing"
+    #    self.paused = False
+    #    for port in self.admintcp_ports:
+    #        port.transport.resumeProducing()
+    #    for port in self.fgfstcp_ports:
+    #        port.transport.resumeProducing()
 
-    def stopProducing(self):
-        """Stop producing event"""
-        print "Serial port has gone away. Shutting down..."
-        reactor.stop()
+    #def stopProducing(self):
+    #    """Stop producing event"""
+    #    print "Serial port has gone away. Shutting down..."
+    #    reactor.stop()
 
     def get_params(self, data):
         #params=get_params(data)
@@ -172,81 +174,91 @@ class Serialport(protocol.Protocol):
     def process_params(self, params):
         print "DEBUG SPP: params:", params
 
-        for i in range(1, len(params)):
-            if len(params[i])==2:
-                param=str(params[i][0])
-                val=params[i][1]
-                #print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
-                
-                cmd=""
-                control_pos=""
-                if param[:3] == "adc":
-                    if param=="adc1":
-                        cmd="/controls/engines/engine/throttle"
-                        control_pos= (val-1)/1023.0
-                    elif str(param).strip()=="adc2":
-                        cmd="/controls/engines/engine[1]/throttle"
-                        control_pos= (val-1)/1023.0
-                    elif str(param).strip()=="adc3":
-                        cmd="/controls/engines/engine/prop-pitch"
-                        control_pos= (val-1)/1023.0
-                    elif str(param).strip()=="adc4":
-                        cmd="/controls/engines/engine[1]/prop-pitch"
-                        control_pos= (val-1)/1023.0
-                        
-                    #elif str(param).strip() == "pin2":
-
-                    print "DEBUG: SPP Cmd: %s val: %f" % (cmd, control_pos)
+        if params != "":
+            for i in range(1, len(params)):
+                if len(params[i])==2:
+                    param=str(params[i][0])
+                    val=params[i][1]
+                    #print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
                     
+                    cmd=""
+                    control_pos=""
+                    if param[:3] == "adc":
+                        if param=="adc1":
+                            cmd="/controls/engines/engine/throttle"
+                            control_pos= (val-1)/1023.0
+                            if val>1000:
+                                self.serial.write("(pin10 1);");
+                                print "DEBUG: pin10 on"
+                            else:
+                                self.serial.write("(pin10 0);");
+                                print "DEBUG: pin10 off"
+                        elif str(param).strip()=="adc2":
+                            cmd="/controls/engines/engine[1]/throttle"
+                            control_pos= (val-1)/1023.0
+                        elif str(param).strip()=="adc3":
+                            cmd="/controls/engines/engine/prop-pitch"
+                            control_pos= (val-1)/1023.0
+                        elif str(param).strip()=="adc4":
+                            cmd="/controls/engines/engine[1]/prop-pitch"
+                            control_pos= (val-1)/1023.0
+                            
+                        #elif str(param).strip() == "pin2":
+
+                        print "DEBUG: SPP Cmd: %s val: %f" % (cmd, control_pos)
+                        
+                        try:
+                            self.fg[cmd]=float(val)/1023.0
+                        #except exceptions.AttributeError:
+                        except AttributeError:
+                            pass #do nothing
+                    
+                    if param[:3] == "pin":
+                        pinNo=param[3:]
+                        
+                        if pinNo == "1":
+                            #print "ERROR: Shouldn't be here"
+                            mesg="(pin7 %d);" % val
+                            print "DEBUG: Mesg: ", mesg
+                            self.serial.write(mesg);
+                            #self.serial.write("(gear 1);");
+                        elif pinNo == "2":
+                            mesg="(pin8 %d);" % val
+                            print "DEBUG: Mesg: ", mesg  
+                            self.serial.write(mesg)
+                            mesg="(pin9 %d);" % val
+                            print "DEBUG: Mesg: ", mesg  
+                            self.serial.write(mesg)
+
+                        #elif pinNo == "3":
+                        #    mesg="(pin11 %d);" % val
+                        #    print "SPP: DEBUG: Mesg: ", mesg  
+                        #    self.serial.write(mesg)
+                        #    #print "DEBUG: Pin3 has been toggled... No Operation taken..."
+                        #time.sleep(0.001)
+
                     #try:
-                    #    self.fg[cmd]=float(val)/1023.0
-                    #except exceptions.AttributeError:
+                    #    self.fg[cmd]=control_pos
+                    #    #except exceptions.AttributeError:
                     #except AttributeError:
                     #    pass #do nothing
-                
-                if param[:3] == "pin":
-                    pinNo=param[3:]
-                    
-                    if pinNo == "1":
-                        #print "ERROR: Shouldn't be here"
-                        mesg="(pin8 %d);" % val
-                        print "DEBUG: Mesg: ", mesg
-                        self.serial.write(mesg);
-                        #self.serial.write("(gear 1);");
-                    elif pinNo == "2":
-                        mesg="(pin9 %d);" % val
-                        print "DEBUG: Mesg: ", mesg  
-                        self.serial.write(mesg)
-                        mesg="(pin10 %d);" % val
-                        print "DEBUG: Mesg: ", mesg  
-                        self.serial.write(mesg)
-
-                    #elif pinNo == "3":
-                    #    mesg="(pin11 %d);" % val
-                    #    print "SPP: DEBUG: Mesg: ", mesg  
-                    #    self.serial.write(mesg)
-                    #    #print "DEBUG: Pin3 has been toggled... No Operation taken..."
-                    #time.sleep(0.001)
-
-                #try:
-                #    self.fg[cmd]=control_pos
-                #    #except exceptions.AttributeError:
-                #except AttributeError:
-                #    pass #do nothing
 
 
     def dataReceived(self, data):
         """Pass any received data to the list of AdminPorts."""
-        
-        result=self.get_params(data)
-        if result != 0:
-            self.process_params(result)
-        
+        print "DR: Data: ***%s***" % data
+        if data=="":
+            print "No data here"
+        else:
+            result=self.get_params(data)
+            if result != 0:
+                self.process_params(result)
             
-        for tcp_port in self.admintcp_ports:
-            tcp_port.write(data)
-        for tcp_port in self.fgfstcp_ports:
-            tcp_port.write(data)
+                
+                for tcp_port in self.admintcp_ports:
+                    tcp_port.write(data)
+                for tcp_port in self.fgfstcp_ports:
+                    tcp_port.write(data)
                 
 
 class AdminPort(protocol.Protocol):
@@ -267,7 +279,7 @@ class AdminPort(protocol.Protocol):
     
     def connectionLost(self, reason):
         self.serial.del_admintcp(self)
-
+		
         return True
 
     def dataReceived(self, data):
@@ -390,26 +402,102 @@ class FGFSPort(protocol.Protocol):
 
 
 class FGFS_IN(DatagramProtocol):
+    """ This is the side where the data is sent from the flight simulator.
+
+    It is connected to port 6001.  
+    """
+
     """
     Data chunk order
         Gear/position_norm
         Gear[1]/position_norm
         Gear[2]/position_norm
         Engine/running
+        
     """
 
     def __init__(self, serial):
-        sleep(5)
-        #self.data_chunks_label=[]
-        #self.data_chunks_label.append("gear/postion-norm")
-        #self.data_chunks_label.append("gear[1]/postion-norm")
-        #self.data_chunks_label.append("gear[2]/postion-norm")
-        #self.data_chunks_label.append("engine/running")
-
-        self.data_chunks_label = "gear/postion-norm", "gear[1]/postion-norm","gear[2]/postion-norm", "engine/running"
-
+        self.data_chunks_label={}
+        self.data_chunks_label[0] = "gear/postion-norm"
+        self.data_chunks_label[1] = "gear[1]/postion-norm"
+        self.data_chunks_label[2] = "gear[2]/postion-norm"
+        self.data_chunks_label[3] = "engine/running"
+        self.data_chunks_label[4] = "engine/mp-osi"
+        self.data_chunks_label[5] = "engine[1]/mp-osi"
+        
         self.serial=serial
         print self.data_chunks_label
+        self.gear_pos= ("","","")
+        self.engine_running=("")
+        #self.gear_pos[0]=""
+        self.data_chunks_vals={}
+        for i in range(len(self.data_chunks_label)):
+            self.data_chunks_vals[self.data_chunks_label[i]] =""
+
+        print "DEBUG: ", self.data_chunks_vals 
+        
+        
+    def datagramReceived(self, data, (host, port)):
+        #print "received %r from %s:%d" % (data, host, port)
+        #self.transport.write(data, (host, port))
+        data=data.strip()
+        data_chunks=data.split("\t")
+
+        print "DEBUG: [dR] Data Chunks:", data_chunks
+        #sys.exit()
+
+        for i in range(len(self.data_chunks_label)):
+            #print self.data_chunks_label[i], data_chunks[i] #, data_chunks[1], data_chunks[2],data_chunks[3]
+            old_val=self.data_chunks_vals[self.data_chunks_label[i]]
+            if ( old_val =="" or old_val != data_chunks[i]):
+                self.data_chunks_vals[self.data_chunks_label[i]]= data_chunks[i]
+
+                print "VALUE CHANGED!: [%d]" % (i), self.data_chunks_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_chunks_label[i]]
+                if (i==3):
+                    mesg="(pin10 %s);" %  self.data_chunks_vals[self.data_chunks_label[i]]
+                    print "DEBUG: Mesg: ", mesg  
+                    self.serial.write(mesg)
+
+                value= self.data_chunks_vals[self.data_chunks_label[i]]
+                value=value.strip()
+                if (i==4):
+                    print "DEBUG: [dR] Value:", value
+                    if (value>="40"):
+                        mesg="(pin7 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
+                        print "DEBUG: Mesg: ", mesg
+                        self.serial.write(mesg)
+                    else:
+                        self.serial.write("(pin7 0);")
+                        
+                if (i==5):
+                    if (value>="40"):
+                        mesg="(pin8 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
+                        print "DEBUG: Mesg: ", mesg
+                        self.serial.write(mesg)
+                    else:
+                        mesg="(pin8 0);"
+                        print "DEBUG: Mesg: ", mesg
+                        self.serial.write(mesg)
+
+            #self.transport.write()
+            #sys.exit()
+    
+
+class FGFS_OUT(DatagramProtocol):
+# This sections needs to be written. The output protocol xml file needs to be written..
+    # Properties used:-
+    def __init__(self, serial):
+
+        self.data_chunks_label = [
+                    "engine/thottle",
+                    "engine[1]/thottle",
+                    "engine/fuel-condition",
+                    "engine[1]/fuel-condition",
+                    "/controls/gear"
+                ]
+
+        self.serial=serial
+        print "DEBUG: FGOUT: ", self.data_chunks_label
         self.gear_pos= ("","","")
         self.engine_running=("")
         #self.gear_pos[0]=""
@@ -431,30 +519,15 @@ class FGFS_IN(DatagramProtocol):
             if ( old_val =="" or old_val != data_chunks[i]):
                 self.data_chunks_vals[self.data_chunks_label[i]]= data_chunks[i]
 
-                print "VALUE CHANGED!:", self.data_chunks_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_chunks_label[i]]
+                print "VALUE CHANGED!:", self.data_chunks_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_chunks_label[i]].strip()
                 if (i==3):
                     mesg="(pin11 %s);" %  self.data_chunks_vals[self.data_chunks_label[i]]
-                    print "DEBUG: Mesg: ", mesg  
+                    print "DEBUG: Mesg: ", mesg
                     self.serial.write(mesg)
-                
+                #if (i==
 
-
-class FGFS_INFactory(protocol.ServerFactory):
-    """Factory to create AdminPort protocol instances, an instanced
-    SerialPort must be passed in."""
-
-    def __init__(self, serial, log_name=None):
-        self.serial = serial
-        self.log_name = log_name
-        self.index = 0
-
-    def buildProtocol(self, addr):
-        """Build a FGFSPort, passing in the instanced SerialPort."""
-        p = FGFS_IN(self.serial, self.log_name, self.index)
-        self.index += 1
-        p.factory = self
-        return p
-        
+    def write(self, data):
+        print data
 
 def usage(text=None):
     print sys.stderr, """Syntax: %s [options]\n%s""" % (sys.argv[0], __doc__)
@@ -513,8 +586,11 @@ def main():
 
         #reactor.connectTCP("localhost", 5500, telnet_factory)
         #reactor.listenUDP(6000, FGFS_INFactory(serial_port))
-        reactor.listenUDP(6000, FGFS_IN(serial_port) )
-
+        #The flightgear Generic protocol requires half duplex port for transferring data,
+        #   otherwise you need to have the same number of data fields being send in both directions. :-/
+        #  Note: UDP doesn't require factory...
+        reactor.listenUDP(6000, FGFS_OUT(serial_port) )
+        #reactor.listenUDP(6001, FGFS_IN(serial_port) )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
