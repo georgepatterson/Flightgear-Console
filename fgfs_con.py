@@ -57,6 +57,9 @@ class Serialport(protocol.Protocol):
         #print "DEBUG: FG:", self.fg["/sim/aero"]
         
         self.fgfstcp_ports = []
+        self.fg_host= None
+        self.fg_port= None
+        self.fg_instance= None
 
         #The following doesn't work. :-/
         try:
@@ -87,6 +90,7 @@ class Serialport(protocol.Protocol):
     def del_admintcp(self, tcp_port):
         """Remove a AdminPort from the those receiving serial data."""
         self.admintcp_ports.remove(tcp_port)
+        
 
     def add_fgfstcp(self, tcp_port):
         """Add a AdminPort to those receiving serial data."""
@@ -129,10 +133,10 @@ class Serialport(protocol.Protocol):
     #    for port in self.fgfstcp_ports:
     #        port.transport.resumeProducing()
 
-    #def stopProducing(self):
-    #    """Stop producing event"""
-    #    print "Serial port has gone away. Shutting down..."
-    #    reactor.stop()
+    def stopProducing(self):
+        """Stop producing event"""
+        print "Serial port has gone away. Shutting down..."
+        reactor.stop()
 
     def get_params(self, data):
         #params=get_params(data)
@@ -175,6 +179,7 @@ class Serialport(protocol.Protocol):
         print "DEBUG SPP: params:", params
 
         if params != "":
+            cmd_arr=[]
             for i in range(1, len(params)):
                 if len(params[i])==2:
                     param=str(params[i][0])
@@ -189,13 +194,16 @@ class Serialport(protocol.Protocol):
                             control_pos= (val-1)/1023.0
                             if val>1000:
                                 self.serial.write("(pin10 1);");
-                                print "DEBUG: pin10 on"
                             else:
                                 self.serial.write("(pin10 0);");
-                                print "DEBUG: pin10 off"
+                            
+                                
                         elif str(param).strip()=="adc2":
                             cmd="/controls/engines/engine[1]/throttle"
                             control_pos= (val-1)/1023.0
+                            cmd_str="0.0\t"+str(control_pos)+"\t1\t1\n"
+                            print "DEBUG: cmd str:", cmd_str
+                            self.fg_instance.transport.write(cmd_str)
                         elif str(param).strip()=="adc3":
                             cmd="/controls/engines/engine/prop-pitch"
                             control_pos= (val-1)/1023.0
@@ -205,7 +213,13 @@ class Serialport(protocol.Protocol):
                             
                         #elif str(param).strip() == "pin2":
 
-                        print "DEBUG: SPP Cmd: %s val: %f" % (cmd, control_pos)
+                        #print "DEBUG: SPP Cmd: %s val: %f" % (cmd, control_pos)
+                        #self.transport.write('Help ME!', (self.fg_host, self.fg_port))
+
+                        if self.fg_instance != None:
+                            print "DEBUG: PP: We have a transport instance" 
+                            #self.fg_instance.transport.write("0.75\t0.5\t1\t1\n")
+                            
                         
                         try:
                             self.fg[cmd]=float(val)/1023.0
@@ -401,7 +415,7 @@ class FGFSPort(protocol.Protocol):
  
 
 
-class FGFS_IN(DatagramProtocol):
+class FGFS_OUT(DatagramProtocol):
     """ This is the side where the data is sent from the flight simulator.
 
     It is connected to port 6001.  
@@ -455,7 +469,6 @@ class FGFS_IN(DatagramProtocol):
                 print "VALUE CHANGED!: [%d]" % (i), self.data_chunks_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_chunks_label[i]]
                 if (i==3):
                     mesg="(pin10 %s);" %  self.data_chunks_vals[self.data_chunks_label[i]]
-                    print "DEBUG: Mesg: ", mesg  
                     self.serial.write(mesg)
 
                 value= self.data_chunks_vals[self.data_chunks_label[i]]
@@ -472,7 +485,7 @@ class FGFS_IN(DatagramProtocol):
                 if (i==5):
                     if (value>="40"):
                         mesg="(pin8 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
-                        print "DEBUG: Mesg: ", mesg
+                        print "DEBUG: [dR] Mesg: ", mesg
                         self.serial.write(mesg)
                     else:
                         mesg="(pin8 0);"
@@ -483,9 +496,14 @@ class FGFS_IN(DatagramProtocol):
             #sys.exit()
     
 
-class FGFS_OUT(DatagramProtocol):
-# This sections needs to be written. The output protocol xml file needs to be written..
+class FGFS_IN(DatagramProtocol):
+    """ This sections needs to be written.
+
+    The output protocol xml file needs to be written... to define the properties.
+    
     # Properties used:-
+        TO BE DONE
+    """
     def __init__(self, serial):
 
         self.data_chunks_label = [
@@ -498,7 +516,7 @@ class FGFS_OUT(DatagramProtocol):
 
         self.serial=serial
         print "DEBUG: FGOUT: ", self.data_chunks_label
-        self.gear_pos= ("","","")
+        self.gear_pos= ("", "", "")
         self.engine_running=("")
         #self.gear_pos[0]=""
         self.data_chunks_vals={}
@@ -507,10 +525,33 @@ class FGFS_OUT(DatagramProtocol):
 
         #print "DEBUG: ", self.data_chunks_vals 
 
+    def startProtocol(self):
+        #self.serial.fg_host=hostname
+        #self.serial.fg_port=port
+
+        self.serial.fg_instance=self
+        self.host="192.168.1.100"
+        self.port=6001
+        self.transport.connect(self.host, self.port)
+        pass #Is this required???
+
+    def endProtocol(self):
+        self.serial.fg_host=""
+        self.serial.fg_port=""
+
+        self.serial.fg_instance=None
+        pass #is this required??
         
     def datagramReceived(self, data, (host, port)):
-        #print "received %r from %s:%d" % (data, host, port)
+        print "received %r from %s:%d" % (data, host, port)
         #self.transport.write(data, (host, port))
+        
+        #self.serial.fg_host=hostname
+        #self.serial.fg_port=port
+        #self.serial.fg_instance=self
+
+
+        """
         data_chunks=data.split("\t")
 
         for i in range(len(self.data_chunks_label)):
@@ -526,6 +567,8 @@ class FGFS_OUT(DatagramProtocol):
                     self.serial.write(mesg)
                 #if (i==
 
+        """
+
     def write(self, data):
         print data
 
@@ -538,15 +581,15 @@ def usage(text=None):
 def main():
     """Parse the command line and run the UI"""
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hp:b:t:lL:",
-            ["help", "port=", "baud=", "tcp=", "log", "log_name="])
+        opts, args = getopt.getopt(sys.argv[1:], "hp:b:t",
+            ["help", "port=", "baud=", "tcp="])
     except getopt.GetoptError, e:
         usage(e)
         sys.exit(2)
         
     tty_port = '/dev/arduino'
     baudrate = 38400
-    tcp_port = 1234
+    udp_port = 6000
     log_name = None
 
     
@@ -586,15 +629,17 @@ def main():
 
         #reactor.connectTCP("localhost", 5500, telnet_factory)
         #reactor.listenUDP(6000, FGFS_INFactory(serial_port))
+        
         #The flightgear Generic protocol requires half duplex port for transferring data,
         #   otherwise you need to have the same number of data fields being send in both directions. :-/
-        #  Note: UDP doesn't require factory...
-        reactor.listenUDP(6000, FGFS_OUT(serial_port) )
-        #reactor.listenUDP(6001, FGFS_IN(serial_port) )
+        #  Direction below is from the perspective of Flightgear.
+        #  Note: UDP doesn't require a factory...
+        reactor.listenUDP(udp_port, FGFS_OUT(serial_port) )
+        reactor.listenUDP((udp_port+1), FGFS_IN(serial_port) )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
-        print "Listening to admin port on %d and 5555" % ( tcp_port )
+        print "Listening to Flightgear UDP port(OUT: %d IN: %d) and 5555" % ( udp_port, udp_port+1 )
 
         reactor.run()
 
