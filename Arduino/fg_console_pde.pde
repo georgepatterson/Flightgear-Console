@@ -1,7 +1,7 @@
 #include <AikoEvents.h> 
 using namespace Aiko;
 
-#define ver  "0.6.04-20100219"
+#define ver  "0.6.05.-20100227"
 
 // The following will be dependent on the Arduino in question. 
 //    Should implement ifdefs to cover them. (168, 328, Mega)
@@ -11,30 +11,40 @@ using namespace Aiko;
 #define maxPWM    6
 
 
-//The following could be handled dynamically. 
-#define Adc1 0 
-#define Adc2 1
-#define Adc3 2
-#define Adc4 3
-#define Pin1 2
-#define Pin2 3
-#define Pin3 4
-#define Pin4 5
+/*The following could be handled dynamically???
+  Assuming that we offset the Digital IO and start at pin2. 
+  long int pins_used= 1111B + 
+  
+  See personal wiki for further details...
+*/
+#define Adc1   0   
+#define Adc2   1
+#define Adc3   2
+#define Adc4   3
 
+#define Pin1   2
+#define Pin2   3
+#define Pin3   4
+#define Pin4   5
+#define Pin5   6
+#define pin6   7
+#define pin7   8
 
-#define pin8 8
-#define pin9 9
-#define pin10 10
-#define pin11 11
+#define pin8   9    //Was: 8
+#define pin9   10   //Was: 9
+#define pin10   11  //Was: 10
+#define pin11   12  //Was: 11
+#define pin11   13 
+
 
 #define ledPin 13
 
 
-//TODO This constant should be stored in eeprom and based on a uuid.
+//TODO This constant should be stored in eeprom and based on a uuid, if host can't 
 #define arduinoId "A6006AHI" 
 
 int incomingByte=0;
-char cmd[20];
+//char cmd[20];
 byte numADC=0;
 byte numIO=0;
 byte usedADC=4;
@@ -48,14 +58,15 @@ void init_ard()
 
   pinMode(ledPin, OUTPUT);
   
+  pinMode(pin7, OUTPUT);
   pinMode(pin8, OUTPUT);
   pinMode(pin9, OUTPUT);
   pinMode(pin10, OUTPUT);
   pinMode(pin11, OUTPUT);
 
-  digitalWrite(pin11,HIGH);
+  digitalWrite(pin10,HIGH);
   delay(500);
-  digitalWrite(pin11, LOW);
+  digitalWrite(pin10, LOW);
   Serial.println("(init)");
 }
 
@@ -121,7 +132,8 @@ void serialHandler() {
   }
 }
 
-void ledHandler() {
+/*void ledHandler() {
+  
   static int state=LOW; 
   static int i=0;
   int lowled=8;
@@ -139,14 +151,9 @@ void ledHandler() {
     state=!state;
   }
 }
+*/
 
 void potHandler() {
-  //static int old_Adc1_val=1023; 
-  //static int old_Adc2_val=1023;
-  //static int old_Adc3_val=1023;
-  //static int old_Adc4_val=1023;
-  //static int old_Adc5_val=1023;
-  //static int old_Adc6_val=1023
   static byte jitter_offset=1;
 
   static int old_Adc_val[] ={1023, 1023, 1023, 1023, 1023, 1023};
@@ -157,7 +164,7 @@ void potHandler() {
 
   started_str=0;
   
-  for(int i=0; i<4; i++) { // TODO:  Change the 4 to numAdc..
+  for(int i=0; i<usedADC; i++) { 
     adc_val=analogRead(i);
   
     if (adc_val < (old_Adc_val[i]-jitter_offset)  ||  adc_val > (old_Adc_val[i]+jitter_offset) ) {
@@ -193,7 +200,8 @@ void switchHandler() {
   int new_Pin1_val;
   int new_Pin2_val;
   int new_Pin3_val;
-  byte started_str;
+  
+  boolean started_str;
 
   new_Pin1_val=digitalRead(Pin1);
   new_Pin2_val=digitalRead(Pin2);
@@ -227,7 +235,7 @@ void switchHandler() {
     }
     Serial.print("(pin2 ");
     Serial.print(old_Pin2_val);
-    Serial.print(")");    
+    Serial.print(")");
   }
 
   if (old_Pin3_val!= new_Pin3_val) {  
@@ -270,6 +278,14 @@ void processCommand(char *buf) {
     Serial.print(int(numIO));
     Serial.print(")");
   }  
+  else if (strcmp(buf, "(pin7 1)") == 0 )
+  {
+    digitalWrite(pin7, 1);
+  }
+  else if (strcmp(buf, "(pin7 0)") == 0 )
+  {
+    digitalWrite(pin7, 0);
+  }
   else if (strcmp(buf, "(pin8 1)") == 0 )
   {
     digitalWrite(pin8, 1);
@@ -303,7 +319,9 @@ void processCommand(char *buf) {
     digitalWrite(pin11, 0);
   } 
   else {
-    Serial.println("(unknown command)");
+    Serial.print("(unknown command");
+    //Serial.print(buf);
+    Serial.println(")");
   }
   
 }
