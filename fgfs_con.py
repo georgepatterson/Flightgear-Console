@@ -39,7 +39,8 @@ from readlisp import *
 from serial import Serial
 import time
 
-hostname="192.168.1.104"
+#hostname="192.168.1.104"
+hostname="127.0.0.1"
 
 
 # FIXME set serial buffer size? SEND_LIMIT
@@ -190,25 +191,24 @@ class Serialport(protocol.Protocol):
                     control_pos=""
                     if param[:3] == "adc":
                         if param=="adc1":
-                            cmd="/controls/engines/engine/throttle"
+                            cmd="engine/throttle"
                             control_pos= (val-1)/1023.0
                             if val>1000:
                                 self.serial.write("(pin10 1);");
                             else:
                                 self.serial.write("(pin10 0);");
                             
-                                
                         elif str(param).strip()=="adc2":
-                            cmd="/controls/engines/engine[1]/throttle"
+                            cmd="engine[1]/throttle"
                             control_pos= (val-1)/1023.0
-                            cmd_str="0.0\t"+str(control_pos)+"\t1\t1\n"
-                            print "DEBUG: cmd str:", cmd_str
-                            self.fg_instance.transport.write(cmd_str)
+                            #cmd_str="0.0\t"+str(control_pos)+"\t1\t1\n"
+                            #print "DEBUG: cmd str:", cmd_str
+                            #self.fg_instance.transport.write(cmd_str)
                         elif str(param).strip()=="adc3":
-                            cmd="/controls/engines/engine/prop-pitch"
+                            cmd="engine/fuel-condition"
                             control_pos= (val-1)/1023.0
                         elif str(param).strip()=="adc4":
-                            cmd="/controls/engines/engine[1]/prop-pitch"
+                            cmd="engine[1]/fuel-condition"
                             control_pos= (val-1)/1023.0
                             
                         #elif str(param).strip() == "pin2":
@@ -217,9 +217,9 @@ class Serialport(protocol.Protocol):
                         #self.transport.write('Help ME!', (self.fg_host, self.fg_port))
 
                         if self.fg_instance != None:
-                            print "DEBUG: PP: We have a transport instance" 
-                            #self.fg_instance.transport.write("0.75\t0.5\t1\t1\n")
-                            
+                            print "DEBUG: PP[ADC]: We have a transport instance" 
+
+                            self.fg_instance.data_field_vals[cmd]=control_pos    
                         
                         try:
                             self.fg[cmd]=float(val)/1023.0
@@ -231,31 +231,50 @@ class Serialport(protocol.Protocol):
                         pinNo=param[3:]
                         
                         if pinNo == "1":
+                            print "DEBUG: Pin3 has been toggled... No Operation taken..."
                             #print "ERROR: Shouldn't be here"
-                            mesg="(pin7 %d);" % val
-                            print "DEBUG: Mesg: ", mesg
-                            self.serial.write(mesg);
+                            #mesg="(pin7 %d);" % val
+                            #print "DEBUG: Mesg: ", mesg
+                            #self.serial.write(mesg);
                             #self.serial.write("(gear 1);");
                         elif pinNo == "2":
-                            mesg="(pin8 %d);" % val
-                            print "DEBUG: Mesg: ", mesg  
-                            self.serial.write(mesg)
-                            mesg="(pin9 %d);" % val
-                            print "DEBUG: Mesg: ", mesg  
-                            self.serial.write(mesg)
+                            print "DEBUG: Pin3 has been toggled... No Operation taken..."
+                            #mesg="(pin8 %d);" % val
+                            #print "DEBUG: Mesg: ", mesg  
+                            #self.serial.write(mesg)
+                            #mesg="(pin9 %d);" % val
+                            #print "DEBUG: Mesg: ", mesg  
+                            #self.serial.write(mesg)
 
-                        #elif pinNo == "3":
-                        #    mesg="(pin11 %d);" % val
-                        #    print "SPP: DEBUG: Mesg: ", mesg  
-                        #    self.serial.write(mesg)
-                        #    #print "DEBUG: Pin3 has been toggled... No Operation taken..."
+                        elif pinNo == "3":
+                            cmd="controls/gear"
+                            control_pos=val
+                            #mesg="(pin11 %d);" % val
+                            #print "SPP: DEBUG: Mesg: ", mesg  
+                            #self.serial.write(mesg)
+                            #print "DEBUG: Pin3 has been toggled... No Operation taken..."
                         #time.sleep(0.001)
+
+                        if self.fg_instance != None:
+                            print "DEBUG: PP[PIN]: We have a transport instance" 
+
+                            self.fg_instance.data_field_vals[cmd]=control_pos    
 
                     #try:
                     #    self.fg[cmd]=control_pos
                     #    #except exceptions.AttributeError:
                     #except AttributeError:
                     #    pass #do nothing
+            #print "DEBUG: GRP: ", self.fg_instance.data_field_vals
+            #print "DEBUG: GRP: ", self.fg_instance.data_fields_label
+            cmd=""
+            for var in self.fg_instance.data_fields_label:
+                print 'DEBUG: var:', var , "field ", self.fg_instance.data_field_vals[var]
+                cmd +=str(self.fg_instance.data_field_vals[var]) +"\t"
+                
+            cmd = cmd.strip()
+            print 'DEBUG: cmd strip:', cmd
+            self.fg_instance.transport.write(cmd)
 
 
     def dataReceived(self, data):
@@ -395,6 +414,7 @@ class FGFSPort(protocol.Protocol):
                 except KeyError, e:
                     print "DEBUG: Difference found: %s: N/A => %s" % (item, chunk[item])
                     pass
+                    
                 self.old_chunks[item]=chunk[idx]
                 
                 new_data=new_data+"(%s: 1);\n" % (item)
@@ -431,24 +451,24 @@ class FGFS_OUT(DatagramProtocol):
     """
 
     def __init__(self, serial):
-        self.data_chunks_label={}
-        self.data_chunks_label[0] = "gear/postion-norm"
-        self.data_chunks_label[1] = "gear[1]/postion-norm"
-        self.data_chunks_label[2] = "gear[2]/postion-norm"
-        self.data_chunks_label[3] = "engine/running"
-        self.data_chunks_label[4] = "engine/mp-osi"
-        self.data_chunks_label[5] = "engine[1]/mp-osi"
+        self.data_fields_label={}
+        self.data_fields_label[0] = "gear/postion-norm"
+        self.data_fields_label[1] = "gear[1]/postion-norm"
+        self.data_fields_label[2] = "gear[2]/postion-norm"
+        self.data_fields_label[3] = "engine/running"
+        self.data_fields_label[4] = "engine/mp-osi"
+        self.data_fields_label[5] = "engine[1]/mp-osi"
         
         self.serial=serial
-        print self.data_chunks_label
+        print "DEBUG: ",self.data_fields_label
         self.gear_pos= ("","","")
         self.engine_running=("")
         #self.gear_pos[0]=""
         self.data_chunks_vals={}
         for i in range(len(self.data_chunks_label)):
-            self.data_chunks_vals[self.data_chunks_label[i]] =""
+            self.data_chunks_vals[self.data_fields_label[i]] =""
 
-        print "DEBUG: ", self.data_chunks_vals 
+        print "DEBUG: FGOUT Data Fields", self.data_fields_vals 
         
         
     def datagramReceived(self, data, (host, port)):
@@ -504,34 +524,38 @@ class FGFS_IN(DatagramProtocol):
     # Properties used:-
         TO BE DONE
     """
-    def __init__(self, serial):
+    def __init__(self, serial, hostname):
+        self.host=hostname
 
-        self.data_chunks_label = [
-                    "engine/thottle",
-                    "engine[1]/thottle",
+        self.data_fields_label = [
+                    "engine/throttle",
+                    "engine[1]/throttle",
                     "engine/fuel-condition",
                     "engine[1]/fuel-condition",
-                    "/controls/gear"
+                    "controls/gear"
                 ]
 
         self.serial=serial
-        print "DEBUG: FGOUT: ", self.data_chunks_label
-        self.gear_pos= ("", "", "")
+        print "DEBUG: FGIN Data Fields:", self.data_fields_label
+        #self.gear_pos= ("", "", "")
         self.engine_running=("")
         #self.gear_pos[0]=""
-        self.data_chunks_vals={}
-        for i in range(len(self.data_chunks_label)):
-            self.data_chunks_vals[self.data_chunks_label[i]] =""
+        self.data_field_vals={}
+        
+        for i in range(len(self.data_fields_label)):
+            self.data_field_vals[self.data_fields_label[i]] =""
 
-        #print "DEBUG: ", self.data_chunks_vals 
+        print "DEBUG: FGIN Data Field Values:", self.data_field_vals 
 
     def startProtocol(self):
         #self.serial.fg_host=hostname
         #self.serial.fg_port=port
 
         self.serial.fg_instance=self
-        self.host="192.168.1.100"
+        #self.host="192.168.1.100"
+        #self.host=hostname
         self.port=6001
+        print self.host
         self.transport.connect(self.host, self.port)
         pass #Is this required???
 
@@ -626,7 +650,6 @@ def main():
         #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
 
         #telnet_factory=TelnetFactory(serial_port)
-
         #reactor.connectTCP("localhost", 5500, telnet_factory)
         #reactor.listenUDP(6000, FGFS_INFactory(serial_port))
         
@@ -634,8 +657,8 @@ def main():
         #   otherwise you need to have the same number of data fields being send in both directions. :-/
         #  Direction below is from the perspective of Flightgear.
         #  Note: UDP doesn't require a factory...
-        reactor.listenUDP(udp_port, FGFS_OUT(serial_port) )
-        reactor.listenUDP((udp_port+1), FGFS_IN(serial_port) )
+        #reactor.listenUDP(udp_port, FGFS_OUT(serial_port) )
+        reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, hostname) )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
