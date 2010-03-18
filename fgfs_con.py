@@ -31,6 +31,8 @@ from twisted.internet.protocol import ClientFactory
 from twisted.internet.protocol import DatagramProtocol
 from time import *
 
+import geoResolve
+
 import serial #get the serial constants
 import gc
 import sys
@@ -459,7 +461,7 @@ class FGFS_OUT(DatagramProtocol):
         
     """
 
-    def __init__(self, serial):
+    def __init__(self, serial, hostname):
         self.data_fields_label={}
         self.data_fields_label[0] = "gear/postion-norm"
         self.data_fields_label[1] = "gear[1]/postion-norm"
@@ -474,10 +476,10 @@ class FGFS_OUT(DatagramProtocol):
         self.engine_running=("")
         #self.gear_pos[0]=""
         self.data_chunks_vals={}
-        for i in range(len(self.data_chunks_label)):
+        for i in range(len(self.data_fields_label)):
             self.data_chunks_vals[self.data_fields_label[i]] =""
 
-        print "DEBUG: FGOUT Data Fields", self.data_fields_vals 
+        print "DEBUG: FGOUT Data Fields", self.data_chunks_vals 
         
         
     def datagramReceived(self, data, (host, port)):
@@ -489,18 +491,18 @@ class FGFS_OUT(DatagramProtocol):
         print "DEBUG: [dR] Data Chunks:", data_chunks
         #sys.exit()
 
-        for i in range(len(self.data_chunks_label)):
+        for i in range(len(self.data_fields_label)):
             #print self.data_chunks_label[i], data_chunks[i] #, data_chunks[1], data_chunks[2],data_chunks[3]
-            old_val=self.data_chunks_vals[self.data_chunks_label[i]]
+            old_val=self.data_chunks_vals[self.data_fields_label[i]]
             if ( old_val =="" or old_val != data_chunks[i]):
-                self.data_chunks_vals[self.data_chunks_label[i]]= data_chunks[i]
+                self.data_chunks_vals[self.data_fields_label[i]]= data_chunks[i]
 
-                print "VALUE CHANGED!: [%d]" % (i), self.data_chunks_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_chunks_label[i]]
+                print "VALUE CHANGED!: [%d]" % (i), self.data_fields_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_fields_label[i]]
                 if (i==3):
-                    mesg="(pin10 %s);" %  self.data_chunks_vals[self.data_chunks_label[i]]
+                    mesg="(pin10 %s);" %  self.data_chunks_vals[self.data_fields_label[i]]
                     self.serial.write(mesg)
 
-                value= self.data_chunks_vals[self.data_chunks_label[i]]
+                value= self.data_chunks_vals[self.data_fields_label[i]]
                 value=value.strip()
                 if (i==4):
                     print "DEBUG: [dR] Value:", value
@@ -613,7 +615,7 @@ def usage(text=None):
 def main():
     """Parse the command line and run the UI"""
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "hp:b:tH",
+        opts, args = getopt.getopt(sys.argv[1:], "hp:b:tH:",
             [ "help", "port=", "baud=", "tcp=", "host=" ])
     except getopt.GetoptError, e:
         usage(e)
@@ -623,8 +625,8 @@ def main():
     baudrate = 38400
     udp_port = 6000
     log_name = None
-    hostname="127.0.0.1"
-    
+    hostaddress="127.0.0.1"
+
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
@@ -643,6 +645,10 @@ def main():
             # Should check that the hostname is resolvable and that the ip address is pingable.
             #       Do not assume that the port is open by connecting to it directly.
             hostname = a
+            if geoResolve.ipFormatChk(hostname) is False: #possible domain name was passed instead...
+                hostaddress= geoResolve.resolveAddress(hostname)
+                print "Hostname: ", hostaddress 
+
         elif o in ("-t", "--tcp"):
             try:
                 tcp_port = int(a)
@@ -669,8 +675,8 @@ def main():
         #   otherwise you need to have the same number of data fields being send in both directions. :-/
         #  Direction below is from the perspective of Flightgear.
         #  Note: UDP doesn't require a factory...
-        reactor.listenUDP(udp_port, FGFS_OUT(serial_port, hostname) )
-        reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, hostname) )
+        reactor.listenUDP(udp_port, FGFS_OUT(serial_port, hostaddress) )
+        reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, hostaddress) )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
