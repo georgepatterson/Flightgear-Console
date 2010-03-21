@@ -43,7 +43,7 @@ from serial import Serial
 import time
 
 #hostname="192.168.1.104"
-hostname="127.0.0.1"
+hostadress="127.0.0.1"
 
 
 # FIXME set serial buffer size? SEND_LIMIT
@@ -114,7 +114,7 @@ class Serialport(protocol.Protocol):
         #data= "(gear %s);\r" % (gear_data)
         
         len_data=len(data)
-        print "SW: write data: %s:%d" % (data.strip(), len_data)
+        #print "SW: write data: %s:%d" % (data.strip(), len_data)
         if self.log:
             self.log.write(data)
         self.serial.write(data)
@@ -198,10 +198,10 @@ class Serialport(protocol.Protocol):
                         if param=="adc1":
                             cmd="engine/throttle"
                             control_pos= (val-1)/1023.0
-                            if val>1000:
-                                self.serial.write("(pin10 1);");
-                            else:
-                                self.serial.write("(pin10 0);");
+                            #if val>1000:
+                            #    self.serial.write("(pin10 1);");
+                            #else:
+                            #    self.serial.write("(pin10 0);");
                             process_pin=True
                         elif str(param).strip()=="adc2":
                             cmd="engine[1]/throttle"
@@ -211,11 +211,11 @@ class Serialport(protocol.Protocol):
                             #print "DEBUG: cmd str:", cmd_str
                             #self.fg_instance.transport.write(cmd_str)
                         elif str(param).strip()=="adc3":
-                            cmd="engine/fuel-condition"
+                            cmd="engine/mixture"
                             control_pos= (val-1)/1023.0
                             process_pin=True
                         elif str(param).strip()=="adc4":
-                            cmd="engine[1]/fuel-condition"
+                            cmd="engine[1]/mixture"
                             control_pos= (val-1)/1023.0
                             process_pin=True
                         #elif str(param).strip() == "pin2":
@@ -224,7 +224,7 @@ class Serialport(protocol.Protocol):
                         #self.transport.write('Help ME!', (self.fg_host, self.fg_port))
 
                         if self.fg_instance != None:
-                            print "DEBUG: PP[ADC]: We have a transport instance" 
+                            #print "DEBUG: PP[ADC]: We have a transport instance" 
 
                             self.fg_instance.data_field_vals[cmd]=control_pos    
                         
@@ -256,7 +256,11 @@ class Serialport(protocol.Protocol):
 
                         elif pinNo == "3":
                             cmd="controls/gear"
-                            control_pos=val
+                            if val==0:
+                                control_pos=0
+                            else: 
+                                control_pos=1
+                            
                             process_pin=True
                             #mesg="(pin11 %d);" % val
                             #print "SPP: DEBUG: Mesg: ", mesg  
@@ -274,23 +278,25 @@ class Serialport(protocol.Protocol):
                     #    #except exceptions.AttributeError:
                     #except AttributeError:
                     #    pass #do nothing
-            #print "DEBUG: GRP: ", self.fg_instance.data_field_vals
-            #print "DEBUG: GRP: ", self.fg_instance.data_fields_label
+            print "DEBUG: GRP: ", self.fg_instance.data_field_vals
+            print "DEBUG: GRP: ", self.fg_instance.data_fields_label
             cmd=""
             for var in self.fg_instance.data_fields_label:
                 #print 'DEBUG: var:', var , "field ", self.fg_instance.data_field_vals[var]
                 cmd +=str(self.fg_instance.data_field_vals[var]) +"\t"
 
             cmd = cmd.strip()
+            cmd=cmd + "\n"
             if process_pin is True:
                 print 'DEBUG: cmd strip:', cmd
                 
                 self.fg_instance.transport.write(cmd)
+                
 
 
     def dataReceived(self, data):
         """Pass any received data to the list of AdminPorts."""
-        print "DR: Data: ***%s***" % data
+        #print "DR: Data: ***%s***" % data
         if data=="":
             print "No data here"
         else:
@@ -488,7 +494,7 @@ class FGFS_OUT(DatagramProtocol):
         data=data.strip()
         data_chunks=data.split("\t")
 
-        print "DEBUG: [dR] Data Chunks:", data_chunks
+        #print "DEBUG: [dR] Data Chunks:", data_chunks
         #sys.exit()
 
         for i in range(len(self.data_fields_label)):
@@ -497,7 +503,7 @@ class FGFS_OUT(DatagramProtocol):
             if ( old_val =="" or old_val != data_chunks[i]):
                 self.data_chunks_vals[self.data_fields_label[i]]= data_chunks[i]
 
-                print "VALUE CHANGED!: [%d]" % (i), self.data_fields_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_fields_label[i]]
+                #print "VALUE CHANGED!: [%d]" % (i), self.data_fields_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_fields_label[i]]
                 if (i==3):
                     mesg="(pin10 %s);" %  self.data_chunks_vals[self.data_fields_label[i]]
                     self.serial.write(mesg)
@@ -505,10 +511,10 @@ class FGFS_OUT(DatagramProtocol):
                 value= self.data_chunks_vals[self.data_fields_label[i]]
                 value=value.strip()
                 if (i==4):
-                    print "DEBUG: [dR] Value:", value
+                    #print "DEBUG: [dR] Value:", value
                     if (value>="40"):
                         mesg="(pin7 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
-                        print "DEBUG: Mesg: ", mesg
+                        #print "DEBUG: Mesg: ", mesg
                         self.serial.write(mesg)
                     else:
                         self.serial.write("(pin7 0);")
@@ -516,11 +522,11 @@ class FGFS_OUT(DatagramProtocol):
                 if (i==5):
                     if (value>="40"):
                         mesg="(pin8 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
-                        print "DEBUG: [dR] Mesg: ", mesg
+                        #print "DEBUG: [dR] Mesg: ", mesg
                         self.serial.write(mesg)
                     else:
                         mesg="(pin8 0);"
-                        print "DEBUG: Mesg: ", mesg
+                        #print "DEBUG: Mesg: ", mesg
                         self.serial.write(mesg)
 
             #self.transport.write()
@@ -541,8 +547,8 @@ class FGFS_IN(DatagramProtocol):
         self.data_fields_label = [
                     "engine/throttle",
                     "engine[1]/throttle",
-                    "engine/fuel-condition",
-                    "engine[1]/fuel-condition",
+                    "engine/mixture",
+                    "engine[1]/mixture",
                     "controls/gear"
                 ]
 
@@ -567,6 +573,7 @@ class FGFS_IN(DatagramProtocol):
         #self.host=hostname
         self.port=6001
         self.transport.connect(self.host, self.port)
+        print "DEBUG: HOST: ", self.host
         pass 
 
     def endProtocol(self):
@@ -577,7 +584,7 @@ class FGFS_IN(DatagramProtocol):
         pass #is this required??
         
     def datagramReceived(self, data, (host, port)):
-        print "sent %r to %s:%d" % (data, host, port)
+        print "sent %r to %s:%d" % (data, hostadress, port)
         #self.transport.write(data, (host, port))
         
         #self.serial.fg_host=hostname
@@ -604,7 +611,7 @@ class FGFS_IN(DatagramProtocol):
         """
 
     def write(self, data):
-        print data
+        print "Data:", data
 
 def usage(text=None):
     print sys.stderr, """Syntax: %s [options]\n%s""" % (sys.argv[0], __doc__)
@@ -647,7 +654,7 @@ def main():
             hostname = a
             if geoResolve.ipFormatChk(hostname) is False: #possible domain name was passed instead...
                 hostaddress= geoResolve.resolveAddress(hostname)
-                print "Hostname: ", hostaddress 
+                print "Host Address: ", hostaddress 
 
         elif o in ("-t", "--tcp"):
             try:
