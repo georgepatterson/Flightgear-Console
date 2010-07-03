@@ -154,12 +154,12 @@ class Serialport(protocol.Protocol):
 
         #remove the serial test code from the data stream.
         self.serial_buffer=self.serial_buffer.replace("(init)","")
-        self.serial_buffer=self.serial_buffer.replace("(time out error)","")
-        self.serial_buffer=self.serial_buffer.replace("(read jackpot)","")
-        self.serial_buffer=self.serial_buffer.replace("(error overflow)","")
-        self.serial_buffer=self.serial_buffer.replace("(unknown command)","")
-        self.serial_buffer=self.serial_buffer.replace("\n","")
-        self.serial_buffer=self.serial_buffer.replace("\r","")
+        self.serial_buffer=self.serial_buffer.replace("(time out error)", "")
+        self.serial_buffer=self.serial_buffer.replace("(read jackpot)", "")
+        self.serial_buffer=self.serial_buffer.replace("(error overflow)", "")
+        self.serial_buffer=self.serial_buffer.replace("(unknown command)", "")
+        self.serial_buffer=self.serial_buffer.replace("\n", "")
+        self.serial_buffer=self.serial_buffer.replace("\r", "")
 
         print "SDR: buffer: %s" % (self.serial_buffer.strip())
 
@@ -198,18 +198,12 @@ class Serialport(protocol.Protocol):
                         if param=="adc1":
                             cmd="engine/throttle"
                             control_pos= (val-1)/1023.0
-                            #if val>1000:
-                            #    self.serial.write("(pin10 1);");
-                            #else:
-                            #    self.serial.write("(pin10 0);");
                             process_pin=True
                         elif str(param).strip()=="adc2":
                             cmd="engine[1]/throttle"
                             control_pos= (val-1)/1023.0
                             process_pin=True
-                            #cmd_str="0.0\t"+str(control_pos)+"\t1\t1\n"
-                            #print "DEBUG: cmd str:", cmd_str
-                            #self.fg_instance.transport.write(cmd_str)
+
                         elif str(param).strip()=="adc3":
                             cmd="engine/mixture"
                             control_pos= (val-1)/1023.0
@@ -238,7 +232,6 @@ class Serialport(protocol.Protocol):
                         pinNo=param[3:]
                         
                         if pinNo == "1":
-                            
                             print "DEBUG: Pin1 has been toggled... No Operation taken..."
                             #print "ERROR: Shouldn't be here"
                             #mesg="(pin7 %d);" % val
@@ -301,9 +294,9 @@ class Serialport(protocol.Protocol):
             print "No data here"
         else:
             result=self.get_params(data)
+            print "DEBUG: Result:", result
             if result != 0:
-                self.process_params(result)
-            
+                self.process_params(result)            
                 
                 for tcp_port in self.admintcp_ports:
                     tcp_port.write(data)
@@ -558,6 +551,7 @@ class FGFS_IN(DatagramProtocol):
         self.engine_running=("")
         #self.gear_pos[0]=""
         self.data_field_vals={}
+        self.temp=""
         
         for i in range(len(self.data_fields_label)):
             self.data_field_vals[self.data_fields_label[i]] =""
@@ -584,9 +578,11 @@ class FGFS_IN(DatagramProtocol):
         pass #is this required??
         
     def datagramReceived(self, data, (host, port)):
-        print "sent %r to %s:%d" % (data, hostadress, port)
-        #self.transport.write(data, (host, port))
-        
+        print "sent %r to %s:%d" % (data, host, port)
+
+        #if self.temp != data or self.temp=="":
+        #    self.transport.write(data, (host, port))
+        #    self.temp=data
         #self.serial.fg_host=hostname
         #self.serial.fg_port=port
         #self.serial.fg_instance=self
@@ -652,7 +648,7 @@ def main():
             # Should check that the hostname is resolvable and that the ip address is pingable.
             #       Do not assume that the port is open by connecting to it directly.
             hostname = a
-            if geoResolve.ipFormatChk(hostname) is False: #possible domain name was passed instead...
+            if geoResolve.ipFormatChk(hostname) is False: #possible host name was passed instead...
                 hostaddress= geoResolve.resolveAddress(hostname)
                 print "Host Address: ", hostaddress 
 
@@ -684,6 +680,7 @@ def main():
         #  Note: UDP doesn't require a factory...
         reactor.listenUDP(udp_port, FGFS_OUT(serial_port, hostaddress) )
         reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, hostaddress) )
+        #reactor.listenUDP(0, FGFS_IN(serial_port, hostaddress) )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
