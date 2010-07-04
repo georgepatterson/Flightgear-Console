@@ -161,7 +161,7 @@ class Serialport(protocol.Protocol):
         self.serial_buffer=self.serial_buffer.replace("\n", "")
         self.serial_buffer=self.serial_buffer.replace("\r", "")
 
-        print "SDR: buffer: %s" % (self.serial_buffer.strip())
+        #print "SDR: buffer: %s" % (self.serial_buffer.strip())
 
         semi_pos=self.serial_buffer.find(";")
         if semi_pos > -1:
@@ -186,6 +186,7 @@ class Serialport(protocol.Protocol):
         if params != "":
             cmd_arr=[]
             process_pin=False
+            #print "DEBUG: ", param ,"\n"
             for i in range(1, len(params)):
                 if len(params[i])==2:
                     param=str(params[i][0])
@@ -271,8 +272,8 @@ class Serialport(protocol.Protocol):
                     #    #except exceptions.AttributeError:
                     #except AttributeError:
                     #    pass #do nothing
-            print "DEBUG: GRP: ", self.fg_instance.data_field_vals
-            print "DEBUG: GRP: ", self.fg_instance.data_fields_label
+            #print "DEBUG: GRP: ", self.fg_instance.data_field_vals
+            #print "DEBUG: GRP: ", self.fg_instance.data_fields_label
             cmd=""
             for var in self.fg_instance.data_fields_label:
                 #print 'DEBUG: var:', var , "field ", self.fg_instance.data_field_vals[var]
@@ -281,7 +282,7 @@ class Serialport(protocol.Protocol):
             cmd = cmd.strip()
             cmd=cmd + "\n"
             if process_pin is True:
-                print 'DEBUG: cmd strip:', cmd
+                #print 'DEBUG: cmd strip:', cmd
                 
                 self.fg_instance.transport.write(cmd)
                 
@@ -294,7 +295,7 @@ class Serialport(protocol.Protocol):
             print "No data here"
         else:
             result=self.get_params(data)
-            print "DEBUG: Result:", result
+            #print "DEBUG: Result:", result
             if result != 0:
                 self.process_params(result)            
                 
@@ -465,9 +466,9 @@ class FGFS_OUT(DatagramProtocol):
         self.data_fields_label[0] = "gear/postion-norm"
         self.data_fields_label[1] = "gear[1]/postion-norm"
         self.data_fields_label[2] = "gear[2]/postion-norm"
-        self.data_fields_label[3] = "engine/running"
-        self.data_fields_label[4] = "engine/mp-osi"
-        self.data_fields_label[5] = "engine[1]/mp-osi"
+        #self.data_fields_label[3] = "engine/running"
+        #self.data_fields_label[4] = "engine/mp-osi"
+        #self.data_fields_label[5] = "engine[1]/mp-osi"
         
         self.serial=serial
         print "DEBUG: ",self.data_fields_label
@@ -478,7 +479,7 @@ class FGFS_OUT(DatagramProtocol):
         for i in range(len(self.data_fields_label)):
             self.data_chunks_vals[self.data_fields_label[i]] =""
 
-        print "DEBUG: FGOUT Data Fields", self.data_chunks_vals 
+        #print "DEBUG: FGOUT Data Fields", self.data_chunks_vals 
         
         
     def datagramReceived(self, data, (host, port)):
@@ -487,7 +488,7 @@ class FGFS_OUT(DatagramProtocol):
         data=data.strip()
         data_chunks=data.split("\t")
 
-        #print "DEBUG: [dR] Data Chunks:", data_chunks
+        print "DEBUG: [dR] Data Chunks:", data_chunks
         #sys.exit()
 
         for i in range(len(self.data_fields_label)):
@@ -536,14 +537,15 @@ class FGFS_IN(DatagramProtocol):
     """
     def __init__(self, serial, hostname):
         self.host=hostname
+        self.port=6001
 
         self.data_fields_label = [
-                    "engine/throttle",
-                    "engine[1]/throttle",
-                    "engine/mixture",
-                    "engine[1]/mixture",
-                    "controls/gear"
-                ]
+                "engine/throttle",
+                "engine[1]/throttle",
+                "engine/mixture",
+                "engine[1]/mixture",
+                "controls/gear"
+            ]
 
         self.serial=serial
         print "DEBUG: FGIN Data Fields:", self.data_fields_label
@@ -679,8 +681,8 @@ def main():
         #  Direction below is from the perspective of Flightgear.
         #  Note: UDP doesn't require a factory...
         reactor.listenUDP(udp_port, FGFS_OUT(serial_port, hostaddress) )
-        reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, hostaddress) )
-        #reactor.listenUDP(0, FGFS_IN(serial_port, hostaddress) )
+        #reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, "127.0.0.1") )
+        reactor.listenUDP(0, FGFS_IN(serial_port, "127.0.0.1") )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
