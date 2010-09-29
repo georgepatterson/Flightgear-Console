@@ -3,8 +3,9 @@
 
 # Release under GPLv3
  
-"""Transfer data between a serial port and one (or more) TCP
-connections.
+"""Code acts as glue code to translate data from a flight control system
+    to FlightGear.
+    
     options:
     -h, --help:     this help
     -H, --host:     hostname of the simulator machine
@@ -14,6 +15,7 @@ connections.
     -t, --tcp=PORT: TCP port number, (admin) default 1234
 """
 # Operating Parameters:
+# TO DO: Re-write this as the server is now mostly UDP connections!
 #   - Entire server needs to be shutdown when changing planes in Flightgear.
 #      This is because it's necessary to create flightgear as a server
 #      as well as a client. Might be other ways to write this stuff.
@@ -152,7 +154,7 @@ class Serialport(protocol.Protocol):
         
         self.serial_buffer+=data
 
-        #remove the serial test code from the data stream.
+        #remove possible serial test code from the data stream.
         self.serial_buffer=self.serial_buffer.replace("(init)","")
         self.serial_buffer=self.serial_buffer.replace("(time out error)", "")
         self.serial_buffer=self.serial_buffer.replace("(read jackpot)", "")
@@ -163,7 +165,7 @@ class Serialport(protocol.Protocol):
 
         #print "SDR: buffer: %s" % (self.serial_buffer.strip())
 
-        semi_pos=self.serial_buffer.find(";")
+        semi_pos=self.serial_buffer.find(";") # Our S-Expression are sent with a semi-colon(;) teminating the string
         if semi_pos > -1:
             
             data_chunks=self.serial_buffer.split(";")
