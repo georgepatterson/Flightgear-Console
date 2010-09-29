@@ -7,8 +7,8 @@ about the code and we will add them at the right time.
 Current issues.
 
 - The data routing is very crude with no way to specify where a piece of
-     data is expected to be sent.
-- Some of the bugs are rather insidious due to the crude code in the Arduino.
+    data is expected to be sent.
+- Some of the bugs are rather insidious due to the crude code in the sArduino.
 - The firmware in the Arduino needs to be reworked to be more robust.
 
 Requirements
@@ -17,7 +17,7 @@ Requirements
 - Pyserial
 
 You also need to grab Flightgear.py from the flightgear cvs repository.
-    URL: http://cvs.flightgear.org/viewvc/source/scripts/python/
+    URL: http://gitorious.org/fg/flightgear/trees/next
 
 While this file may be incomplete, this code is in a state of flux and
 subject to change. Please drop a line if this is not clear as it's
