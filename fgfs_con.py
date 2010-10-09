@@ -1,7 +1,8 @@
 #!/usr/bin/env python
-# Copyright (c) 2009, 2010 George Patterson
+# -*- coding: utf-8 -*-
 
-# Release under GPLv3
+""" Copyright © 2009, 2010 George Patterson All Rights"""
+# Released under GPLv3
  
 """Code acts as glue code to translate data from a flight control system
     to FlightGear.
@@ -44,7 +45,7 @@ from readlisp import *
 from serial import Serial
 import time
 
-#hostname="192.168.1.104"
+#hostaddress="192.168.1.100"
 hostadress="127.0.0.1"
 
 
@@ -509,7 +510,7 @@ class FGFS_OUT(DatagramProtocol):
                 if (i==4):
                     #print "DEBUG: [dR] Value:", value
                     if (value>="40"):
-                        mesg="(pin7 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
+                        mesg="(pin7=1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
                         #print "DEBUG: Mesg: ", mesg
                         self.serial.write(mesg)
                     else:
@@ -517,11 +518,11 @@ class FGFS_OUT(DatagramProtocol):
                         
                 if (i==5):
                     if (value>="40"):
-                        mesg="(pin8 1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
+                        mesg="(pin8=1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
                         #print "DEBUG: [dR] Mesg: ", mesg
                         self.serial.write(mesg)
                     else:
-                        mesg="(pin8 0);"
+                        mesg="(pin8=0);"
                         #print "DEBUG: Mesg: ", mesg
                         self.serial.write(mesg)
 
