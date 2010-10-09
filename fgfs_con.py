@@ -13,13 +13,14 @@
     -p, --port=PORT: port, a number, default = /dev/arduino or can use
                         a numeric value or a device name such as /dev/ttyUSB0
     -b, --baud=BAUD: baudrate, default 38400
-    -t, --tcp=PORT: TCP port number, (admin) default 1234
+    -t, --tcp=PORT: TCP port number, (admin) default 1234 (Not Implemented
 """
 # Operating Parameters:
 # TO DO: Re-write this as the server is now mostly UDP connections!
 #   - Entire server needs to be shutdown when changing planes in Flightgear.
 #      This is because it's necessary to create flightgear as a server
 #      as well as a client. Might be other ways to write this stuff.
+#   -  
 #   - Currently there is no authentication nor classes for the admin
 #      protocol. This will need to be changed before offical release.
 
@@ -55,7 +56,7 @@ class Serialport(protocol.Protocol):
     """Create a serial port connection and pass data from it to a
     known list of TCP ports."""
     
-    def __init__(self, port, reactor, baudrate, log_name=None):
+    def __init__(self, port, reactor, baudrate):
         self.admintcp_ports = []
         #from FlightGear import FlightGear
         #from readlisp import *
@@ -72,7 +73,8 @@ class Serialport(protocol.Protocol):
         #The following doesn't work. :-/
         try:
            self.serial = SerialPort(self, reactor, port, baudrate)
-        except serial.SerialException:
+        except serial.SerialException, reason:
+            print reason
             print "Error: Arduino interface not found.\n"
             print "Please ensure that the FG Console is plugged into a working USB port and try running this program again.\n"
             print "The other possibibiliy is that the device name is not /dev/arduino. Please see documentation for details.\n"
@@ -82,8 +84,6 @@ class Serialport(protocol.Protocol):
         self.serial_buffer=""
         self.paused = False
         self.log = None
-        if log_name is not None:
-            self.log = file('%s-0' % log_name, 'w')
 
         self.serial.write("(reset);");
         #self.serial.write("(gear 1);");
@@ -184,17 +184,17 @@ class Serialport(protocol.Protocol):
             return 0
     
     def process_params(self, params):
-        #print "DEBUG SPP: params:", params
+        print "DEBUG SPP: params:", params
 
         if params != "":
             cmd_arr=[]
             process_pin=False
-            #print "DEBUG: ", param ,"\n"
+            
             for i in range(1, len(params)):
                 if len(params[i])==2:
                     param=str(params[i][0])
                     val=params[i][1]
-                    #print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
+                    print "DEBUG: SPP Param: ***%s*** Val: %s" % (param, str(val))
                     
                     cmd=""
                     control_pos=""
@@ -263,7 +263,7 @@ class Serialport(protocol.Protocol):
                             #print "SPP: DEBUG: Mesg: ", mesg  
                             #self.serial.write(mesg)
                             #print "DEBUG: Pin3 has been toggled... No Operation taken..."
-                        #time.sleep(0.001)
+                        time.sleep(0.001)
 
                         if self.fg_instance != None and process_pin:
                             print "DEBUG: PP[PIN]: We have a transport instance" 
@@ -276,7 +276,7 @@ class Serialport(protocol.Protocol):
                     #except AttributeError:
                     #    pass #do nothing
             #print "DEBUG: GRP: ", self.fg_instance.data_field_vals
-            #print "DEBUG: GRP: ", self.fg_instance.data_fields_label
+            print "DEBUG: GRP: ", self.fg_instance.data_fields_label
             cmd=""
             for var in self.fg_instance.data_fields_label:
                 #print 'DEBUG: var:', var , "field ", self.fg_instance.data_field_vals[var]
@@ -312,13 +312,12 @@ class AdminPort(protocol.Protocol):
     """Create a TCP server connection and pass data from it to the
     serial port."""
 
-    def __init__(self, serial, log_name, index):
+    def __init__(self, serial, index):
         """Add this AdminPort to the SerialPort."""
         self.serial = serial
         self.serial.add_admintcp(self)
         self.log = None
-        if log_name is not None:
-            self.log = file('%s-%d' % (log_name, index+1), 'w')
+
 
     def __del__(self):
         """Remove this AdminPort from the SerialPort."""
@@ -348,14 +347,13 @@ class AdminPortFactory(protocol.ServerFactory):
     """Factory to create AdminPort protocol instances, an instanced
     SerialPort must be passed in."""
 
-    def __init__(self, serial, log_name=None):
+    def __init__(self, serial):
         self.serial = serial
-        self.log_name = log_name
         self.index = 0
 
     def buildProtocol(self, addr):
         """Build a AdminPort, passing in the instanced SerialPort."""
-        p = AdminPort(self.serial, self.log_name, self.index)
+        p = AdminPort(self.serial, self.index)
         self.index += 1
         p.factory = self
         return p
@@ -381,7 +379,7 @@ Create a UDP server connection and pass data from it to the
 serial port."""
 class FGFSPort(protocol.Protocol):
 
-    def __init__(self, serial, log_name, index):
+    def __init__(self, serial, index):
         #Expected number of chunks... May not be used.
         self.num_of_chunks=3
         self.old_chunks= {}
@@ -392,8 +390,6 @@ class FGFSPort(protocol.Protocol):
         self.serial.add_fgfstcp(self)
         self.log = None
         
-        if log_name is not None:
-            self.log = file('%s-%d' % (log_name, index+1), 'w')
 
     def __del__(self):
         """Remove this AdminPort from the SerialPort."""
@@ -466,6 +462,7 @@ class FGFS_OUT(DatagramProtocol):
 
     def __init__(self, serial, hostname):
         self.data_fields_label={}
+        
         self.data_fields_label[0] = "gear/postion-norm"
         self.data_fields_label[1] = "gear[1]/postion-norm"
         self.data_fields_label[2] = "gear[2]/postion-norm"
@@ -502,7 +499,7 @@ class FGFS_OUT(DatagramProtocol):
 
                 #print "VALUE CHANGED!: [%d]" % (i), self.data_fields_label[i], ":", old_val, "->", self.data_chunks_vals[self.data_fields_label[i]]
                 if (i==3):
-                    mesg="(pin10 %s);" %  self.data_chunks_vals[self.data_fields_label[i]]
+                    mesg="(pin10=%s);" %  self.data_chunks_vals[self.data_fields_label[i]]
                     self.serial.write(mesg)
 
                 value= self.data_chunks_vals[self.data_fields_label[i]]
@@ -632,13 +629,12 @@ def main():
     tty_port = '/dev/arduino'
     baudrate = 38400
     udp_port = 6000
-    log_name = None
     hostaddress="127.0.0.1"
 
     for o, a in opts:
         if o in ("-h", "--help"):
             usage()
-            sys.exit()
+            sys.exit(1)
         elif o in ("-p", "--port"):
             try:
                 tty_port = int(a)
@@ -662,18 +658,14 @@ def main():
                 tcp_port = int(a)
             except ValueError:
                 usage("Bad TCP port %r" % a)
-        elif o in ("-l", "--log"):
-            log_name = 'snifter'
-        elif o in ("-L", "--log_name"):
-            log_name = a
 
     try:
-        serial_port = Serialport(reactor, tty_port, baudrate, log_name)
+        serial_port = Serialport(reactor, tty_port, baudrate)
     except serial.SerialException:
         print "Serial port not found... Please check connections and try again"
     else:
-        #admin_port_factory = AdminPortFactory(serial_port, log_name)
-        #fgfs_port_factory = FGFSPortFactory(serial_port, log_name)
+        #admin_port_factory = AdminPortFactory(serial_port)
+        #fgfs_port_factory = FGFSPortFactory(serial_port)
 
         #telnet_factory=TelnetFactory(serial_port)
         #reactor.connectTCP("localhost", 5500, telnet_factory)
@@ -683,9 +675,9 @@ def main():
         #   otherwise you need to have the same number of data fields being send in both directions. :-/
         #  Direction below is from the perspective of Flightgear.
         #  Note: UDP doesn't require a factory...
-        reactor.listenUDP(udp_port, FGFS_OUT(serial_port, hostaddress) )
+        #reactor.listenUDP(udp_port, FGFS_OUT(serial_port, hostaddress) )
         #reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, "127.0.0.1") )
-        reactor.listenUDP(0, FGFS_IN(serial_port, "127.0.0.1") )
+        #reactor.listenUDP(0, FGFS_IN(serial_port, "127.0.0.1") )
         #reactor.listenTCP(tcp_port, admin_port_factory)
         #reactor.listenTCP(5555, fgfs_port_factory)
         
