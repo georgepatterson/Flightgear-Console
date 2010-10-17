@@ -13,14 +13,14 @@
     -p, --port=PORT: port, a number, default = /dev/arduino or can use
                         a numeric value or a device name such as /dev/ttyUSB0
     -b, --baud=BAUD: baudrate, default 38400
-    -t, --tcp=PORT: TCP port number, (admin) default 1234 (Not Implemented
+    -t, --tcp=PORT: TCP port number, (admin) default 1234 (Not Implemented)
 """
 # Operating Parameters:
 # TO DO: Re-write this as the server is now mostly UDP connections!
 #   - Entire server needs to be shutdown when changing planes in Flightgear.
 #      This is because it's necessary to create flightgear as a server
 #      as well as a client. Might be other ways to write this stuff.
-#   -  
+#       - Negated after moving to UDP rather than TCP.
 #   - Currently there is no authentication nor classes for the admin
 #      protocol. This will need to be changed before offical release.
 
@@ -56,11 +56,14 @@ class Serialport(protocol.Protocol):
     """Create a serial port connection and pass data from it to a
     known list of TCP ports."""
     
-    def __init__(self, port, reactor, baudrate):
-        self.admintcp_ports = []
+    def __init__(self, port, reactor, baudrate, hostname="localhost"):
+        #LATER: self.admintcp_ports = []
+        
+        # the following commented out four lines of code might be 
+        #   better being moved to the FGFS thread to run when the 
+        #   udp packets are first received
         #from FlightGear import FlightGear
         #from readlisp import *
-
         #self.fg = FlightGear(hostname, 5500)
         #print "DEBUG: FG:", self.fg["/sim/aero"]
         
@@ -70,7 +73,6 @@ class Serialport(protocol.Protocol):
         self.fg_instance= None
         self.state=0
 
-        #The following doesn't work. :-/
         try:
            self.serial = SerialPort(self, reactor, port, baudrate)
         except serial.SerialException, reason:
@@ -78,7 +80,7 @@ class Serialport(protocol.Protocol):
             print "Error: Arduino interface not found.\n"
             print "Please ensure that the FG Console is plugged into a working USB port and try running this program again.\n"
             print "The other possibibiliy is that the device name is not /dev/arduino. Please see documentation for details.\n"
-            sys.exit(0)
+            sys.exit(1)
         
         self.serial.registerProducer(self, True)
         self.serial_buffer=""
@@ -99,7 +101,6 @@ class Serialport(protocol.Protocol):
         """Remove a AdminPort from the those receiving serial data."""
         self.admintcp_ports.remove(tcp_port)
         
-
     def add_fgfstcp(self, tcp_port):
         """Add a AdminPort to those receiving serial data."""
         if self.paused:
@@ -123,25 +124,25 @@ class Serialport(protocol.Protocol):
         self.serial.write(data)
 
 
-    #def pauseProducing(self):
-    #    """Pause producing event"""
-    #    print "pause producing"
-    #    self.paused = True
-    #    for port in self.admintcp_ports:
-    #        port.transport.pauseProducing()
-    #    for port in self.fgfstcp_ports:
-    #        port.transport.pauseProducing()
+    def pauseProducing(self):
+        """Pause producing event"""
+        print "pause producing"
+        self.paused = True
+        for port in self.admintcp_ports:
+            port.transport.pauseProducing()
+        for port in self.fgfstcp_ports:
+            port.transport.pauseProducing()
         
 
-    #def resumeProducing(self):
-    #    """Resume producing event"""
-    #    print "resume producing"
-    #    self.paused = False
-    #    for port in self.admintcp_ports:
-    #        port.transport.resumeProducing()
-    #    for port in self.fgfstcp_ports:
-    #        port.transport.resumeProducing()
-
+    def resumeProducing(self):
+        """Resume producing event"""
+        print "resume producing"
+        self.paused = False
+        for port in self.admintcp_ports:
+            port.transport.resumeProducing()
+        for port in self.fgfstcp_ports:
+            port.transport.resumeProducing()
+    
     def stopProducing(self):
         """Stop producing event"""
         print "Serial port has gone away. Shutting down..."
@@ -151,20 +152,29 @@ class Serialport(protocol.Protocol):
         #params=get_params(data)
         
         len_data=len(data)
-        #print "SDR: write data: %s:%d" % (data, len_data)
+        print "SDR: write data: %s:%d" % (data, len_data)
         
         self.serial_buffer+=data
+        print "SDR: buffer: %s" % (self.serial_buffer.strip())
+
 
         #remove possible serial test code from the data stream.
-        self.serial_buffer=self.serial_buffer.replace("(init)","")
-        self.serial_buffer=self.serial_buffer.replace("(time out error)", "")
-        self.serial_buffer=self.serial_buffer.replace("(read jackpot)", "")
-        self.serial_buffer=self.serial_buffer.replace("(error overflow)", "")
-        self.serial_buffer=self.serial_buffer.replace("(unknown command)", "")
-        self.serial_buffer=self.serial_buffer.replace("\n", "")
-        self.serial_buffer=self.serial_buffer.replace("\r", "")
 
-        #print "SDR: buffer: %s" % (self.serial_buffer.strip())
+        stripBuffer=['(init)','(time out error)', '(read jackpot)',
+                    '(error overflow)', '(unknown command)',
+                    '\n', '\r'
+                ]
+        for term in stripBuffer:
+            self.serial_buffer=self.serial_buffer.replace(term,"")
+
+        #self.serial_buffer=self.serial_buffer.replace("(init)","")
+        #self.serial_buffer=self.serial_buffer.replace("(time out error)", "")
+        #self.serial_buffer=self.serial_buffer.replace("(read jackpot)", "")
+        #self.serial_buffer=self.serial_buffer.replace("(error overflow)", "")
+        #self.serial_buffer=self.serial_buffer.replace("(unknown command)", "")
+        #self.serial_buffer=self.serial_buffer.replace("\n", "")
+        #self.serial_buffer=self.serial_buffer.replace("\r", "")
+
 
         semi_pos=self.serial_buffer.find(";") # Our S-Expression are sent with a semi-colon(;) teminating the string
         if semi_pos > -1:
@@ -222,8 +232,8 @@ class Serialport(protocol.Protocol):
                         #self.transport.write('Help ME!', (self.fg_host, self.fg_port))
 
                         if self.fg_instance != None:
-                            #print "DEBUG: PP[ADC]: We have a transport instance" 
-
+                            #print "DEBUG: PP[ADC]: We have a transport instance"
+                            
                             self.fg_instance.data_field_vals[cmd]=control_pos    
                         
                         try:
@@ -253,17 +263,25 @@ class Serialport(protocol.Protocol):
 
                         elif pinNo == "3":
                             cmd="controls/gear"
+                            
                             if val==0:
                                 control_pos=0
                             else: 
                                 control_pos=1
+
+                            #mesg="(pin7=%d);" % (control_pos)
+                            mesg="(pin8=%d);" % (control_pos)
+                            #mesg="(pin9=%d);" % (control_pos)
+                            #mesg="(pin10=%d);" % (control_pos)
+
+                            self.write(mesg)
                             
                             process_pin=True
                             #mesg="(pin11 %d);" % val
                             #print "SPP: DEBUG: Mesg: ", mesg  
                             #self.serial.write(mesg)
                             #print "DEBUG: Pin3 has been toggled... No Operation taken..."
-                        time.sleep(0.001)
+                            #time.sleep(0.001)
 
                         if self.fg_instance != None and process_pin:
                             print "DEBUG: PP[PIN]: We have a transport instance" 
@@ -276,18 +294,20 @@ class Serialport(protocol.Protocol):
                     #except AttributeError:
                     #    pass #do nothing
             #print "DEBUG: GRP: ", self.fg_instance.data_field_vals
-            print "DEBUG: GRP: ", self.fg_instance.data_fields_label
+            #print "DEBUG: GRP: ", self.fg_instance.data_fields_vals
             cmd=""
-            for var in self.fg_instance.data_fields_label:
-                #print 'DEBUG: var:', var , "field ", self.fg_instance.data_field_vals[var]
-                cmd +=str(self.fg_instance.data_field_vals[var]) +"\t"
+            if (self.fg_instance is None):
+                print "FG Instance is not declared!!"
+            else:
+                for var in self.fg_instance.data_fields_label:
+                    #print 'DEBUG: var:', var , "field ", self.fg_instance.data_field_vals[var]
+                    cmd +=str(self.fg_instance.data_field_vals[var]) +"\t"
 
-            cmd = cmd.strip()
-            cmd=cmd + "\n"
-            if process_pin is True:
-                #print 'DEBUG: cmd strip:', cmd
-                
-                self.fg_instance.transport.write(cmd)
+                cmd = cmd.strip()
+                cmd=cmd + "\n"
+                if process_pin is True:
+                    #print 'DEBUG: cmd strip:', cmd
+                    self.fg_instance.transport.write(cmd)
                 
 
 
@@ -302,8 +322,8 @@ class Serialport(protocol.Protocol):
             if result != 0:
                 self.process_params(result)            
                 
-                for tcp_port in self.admintcp_ports:
-                    tcp_port.write(data)
+                #for tcp_port in self.admintcp_ports:
+                #    tcp_port.write(data)
                 for tcp_port in self.fgfstcp_ports:
                     tcp_port.write(data)
                 
@@ -378,7 +398,6 @@ class AdminPortFactory(protocol.ServerFactory):
 Create a UDP server connection and pass data from it to the
 serial port."""
 class FGFSPort(protocol.Protocol):
-
     def __init__(self, serial, index):
         #Expected number of chunks... May not be used.
         self.num_of_chunks=3
@@ -399,7 +418,6 @@ class FGFSPort(protocol.Protocol):
         self.serial.del_fgfstcp(self)
 
         return True
-
 
     def dataReceived(self, data):
         """Pass received data to the SerialPort."""
@@ -457,7 +475,6 @@ class FGFS_OUT(DatagramProtocol):
         Gear[1]/position_norm
         Gear[2]/position_norm
         Engine/running
-        
     """
 
     def __init__(self, serial, hostname):
@@ -466,9 +483,9 @@ class FGFS_OUT(DatagramProtocol):
         self.data_fields_label[0] = "gear/postion-norm"
         self.data_fields_label[1] = "gear[1]/postion-norm"
         self.data_fields_label[2] = "gear[2]/postion-norm"
-        #self.data_fields_label[3] = "engine/running"
-        #self.data_fields_label[4] = "engine/mp-osi"
-        #self.data_fields_label[5] = "engine[1]/mp-osi"
+        self.data_fields_label[3] = "engine/running"
+        self.data_fields_label[4] = "engine/mp-osi"
+        self.data_fields_label[5] = "engine[1]/mp-osi"
         
         self.serial=serial
         print "DEBUG: ",self.data_fields_label
@@ -507,11 +524,15 @@ class FGFS_OUT(DatagramProtocol):
                 if (i==4):
                     #print "DEBUG: [dR] Value:", value
                     if (value>="40"):
-                        mesg="(pin7=1);" #%  self.data_chunks_vals[self.data_chunks_label[i]]
-                        #print "DEBUG: Mesg: ", mesg
-                        self.serial.write(mesg)
+                        pin_val=1
                     else:
-                        self.serial.write("(pin7 0);")
+                        pin_val=0
+                        
+                    mesg="(pin7=%d);" % (pin_val) #%  self.data_chunks_vals[self.data_chunks_label[i]]
+                    print "DEBUG: Mesg: ", mesg
+                    self.serial.write(mesg)
+                    #else:
+                    #    self.serial.write("(pin7 0);")
                         
                 if (i==5):
                     if (value>="40"):
@@ -611,6 +632,8 @@ class FGFS_IN(DatagramProtocol):
     def write(self, data):
         print "Data:", data
 
+""" Display the usage parameters 
+"""
 def usage(text=None):
     print sys.stderr, """Syntax: %s [options]\n%s""" % (sys.argv[0], __doc__)
     #print sys.stderr, "Uses tty /dev/arduino with baudrate of 38400 and opens port 6000"
@@ -679,6 +702,7 @@ def main():
         #reactor.listenUDP((udp_port+1), FGFS_IN(serial_port, "127.0.0.1") )
         #reactor.listenUDP(0, FGFS_IN(serial_port, "127.0.0.1") )
         #reactor.listenTCP(tcp_port, admin_port_factory)
+        
         #reactor.listenTCP(5555, fgfs_port_factory)
         
         print "Listening to Flightgear UDP port(OUT: %d IN: %d) and 5555" % ( udp_port, udp_port+1 )
