@@ -44,7 +44,7 @@ import getopt
 try: 
   from FlightGear import FlightGear
 except ImportError:
-    print "No FlightGear module found. Continuing without it.
+    print "No FlightGear module found. Continuing without it."
     #Will add personal website when it is ready...
     print "See http://www.flightgear.org for details"
 from readlisp import *
