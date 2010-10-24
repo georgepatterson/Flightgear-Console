@@ -20,7 +20,7 @@
 #   - Entire server needs to be shutdown when changing planes in Flightgear.
 #      This is because it's necessary to create flightgear as a server
 #      as well as a client. Might be other ways to write this stuff.
-#       - Negated after moving to UDP rather than TCP.
+#       - Negated after moving to UDP rather than TCP. (Not 100% sure though)
 #   - Currently there is no authentication nor classes for the admin
 #      protocol. This will need to be changed before offical release.
 
@@ -41,7 +41,12 @@ import serial #get the serial constants
 import gc
 import sys
 import getopt
-from FlightGear import FlightGear
+try: 
+  from FlightGear import FlightGear
+except ImportError:
+    print "No FlightGear module found. Continuing without it.
+    #Will add personal website when it is ready...
+    print "See http://www.flightgear.org for details"
 from readlisp import *
 from serial import Serial
 import time
